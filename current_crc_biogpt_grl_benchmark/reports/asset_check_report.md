@@ -1,0 +1,25 @@
+# Asset Check Report
+
+| asset | status | path_or_note |
+|---|---|---|
+| MMUPHin CRC abundance | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_controlled_benchmark\data\crc_raw_abundance.csv |
+| MMUPHin CRC metadata | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_controlled_benchmark\data\crc_metadata.csv |
+| MMUPHin adjusted abundance | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_controlled_benchmark\data\crc_mmuphin_adjusted_abundance.csv |
+| overlap sample file | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_overlap_check\crc_sample_overlap.csv |
+| overlap study file | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_overlap_check\crc_study_overlap.csv |
+| overlap counts file | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_overlap_check\crc_overlap_counts.csv |
+| BiomeGPT checkpoint | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\taxonomy_checkpoint_stage2 (1).pt |
+| BiomeGPT checkpoint stage1 | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\taxonomy_checkpoint_stage1 (1).pt |
+| BiomeGPT checkpoint stage2 | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\taxonomy_checkpoint_stage2 (1).pt |
+| BiomeGPT raw data | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\biogpt data\abund_pretraining_phase2_gut.csv.zip |
+| BiomeGPT taxonomy xlsx | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\legacy_source\biomegpt_reusable_20260521_batch_correction\dataset_v3\species_taxonomy_filled_validated_Serena.xlsx |
+| BiomeGPT raw CLS embeddings | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\outputs\crc_overlap_benchmark\biogpt_raw_cls_389.csv |
+| GRL module | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\src\grl_correction\train_grl.py |
+| overlap manifest 389 | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\data_manifest\crc_overlap_manifest_389.csv |
+| metadata 389 | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\outputs\crc_overlap_benchmark\metadata_389.csv |
+| raw abundance 389 | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\outputs\crc_overlap_benchmark\raw_abundance_389.csv |
+| MMUPHin adjusted abundance 389 | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\outputs\crc_overlap_benchmark\mmuphin_adjusted_abundance_389.csv |
+| required output folder: outputs/crc_overlap_benchmark | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\outputs\crc_overlap_benchmark |
+| required output folder: outputs/figures | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\outputs\figures |
+| required output folder: outputs/metrics | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\outputs\metrics |
+| required output folder: reports | FOUND | C:\Users\Yuanshu\Documents\new_attemp_batch\crc_biogpt_grl_benchmark\reports |

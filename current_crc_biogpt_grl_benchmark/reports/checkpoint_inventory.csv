@@ -1,0 +1,3 @@
+checkpoint,size_bytes,last_write_time,zip_entries,has_data_pkl
+taxonomy_checkpoint_stage1 (1).pt,171736187,1782334942.334215,496,True
+taxonomy_checkpoint_stage2 (1).pt,171736443,1782334936.2875307,496,True

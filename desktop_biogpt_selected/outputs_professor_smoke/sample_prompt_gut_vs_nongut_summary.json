@@ -1,0 +1,12 @@
+{
+  "counts": {
+    "non-gut": 12,
+    "stool": 12
+  },
+  "groups": [
+    "non-gut",
+    "stool"
+  ],
+  "centroid_distance": 0.16756203770637512,
+  "centroid_distance_over_pooled_std": 4.614157529054171
+}

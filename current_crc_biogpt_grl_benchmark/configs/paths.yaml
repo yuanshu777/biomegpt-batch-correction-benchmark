@@ -1,0 +1,16 @@
+project_root: ..
+old_package_zip: ../biomegpt_reusable_20260521_batch_correction.zip
+biogpt_metadata: ../biogpt data/meta_pretraining_phase2_gut_batch_annotation_external_enriched.csv
+crc_overlap_dir: ../crc_overlap_check
+crc_sample_overlap: ../crc_overlap_check/crc_sample_overlap.csv
+crc_study_overlap: ../crc_overlap_check/crc_study_overlap.csv
+crc_overlap_counts: ../crc_overlap_check/crc_overlap_counts.csv
+crc_metadata: ../crc_controlled_benchmark/data/crc_metadata.csv
+crc_raw_abundance: ../crc_controlled_benchmark/data/crc_raw_abundance.csv
+crc_mmuphin_adjusted_abundance: ../crc_controlled_benchmark/data/crc_mmuphin_adjusted_abundance.csv
+biogpt_checkpoint: ../taxonomy_checkpoint_stage2 (1).pt
+biogpt_checkpoint_stage1: ../taxonomy_checkpoint_stage1 (1).pt
+biogpt_checkpoint_stage2: ../taxonomy_checkpoint_stage2 (1).pt
+biogpt_raw_abundance: ../biogpt data/abund_pretraining_phase2_gut.csv.zip
+biogpt_taxonomy_xlsx: legacy_source/biomegpt_reusable_20260521_batch_correction/dataset_v3/species_taxonomy_filled_validated_Serena.xlsx
+biogpt_raw_cls_embeddings: outputs/crc_overlap_benchmark/biogpt_raw_cls_389.csv

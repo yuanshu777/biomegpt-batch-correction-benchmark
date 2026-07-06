@@ -1,0 +1,4 @@
+comparison,left_count,overlap_count,missing_count,missing_examples
+phase1_species_in_taxonomy,1012,1012,0,
+prev3_species_in_exval,513,512,1,Leuconostoc_virus_P793
+phase2_species_in_phase1,875,875,0,

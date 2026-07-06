@@ -1,0 +1,16 @@
+primary_benchmark: crc_overlap_389
+reference_benchmark: full_mmuphin_crc_551
+sample_id_column: sample_id
+study_column: studyID
+condition_column: study_condition
+positive_condition: CRC
+negative_condition: control
+overlap_match_status: confirmed_accession_overlap
+main_methods:
+  - raw_abundance_389
+  - mmuphin_adjusted_abundance_389
+  - biogpt_raw_cls_389
+  - biogpt_grl_corrected_cls_389
+reference_methods:
+  - raw_abundance_551
+  - mmuphin_adjusted_abundance_551

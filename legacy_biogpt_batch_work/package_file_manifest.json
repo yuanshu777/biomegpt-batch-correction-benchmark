@@ -1,0 +1,174 @@
+[
+  {
+    "path": ".vscode\\settings.json",
+    "bytes": 251
+  },
+  {
+    "path": "CODEX_PROJECT_CONTEXT.md",
+    "bytes": 5267
+  },
+  {
+    "path": "dataset_v3\\abund_finetuning_gut_prev3.csv.zip",
+    "bytes": 10979458
+  },
+  {
+    "path": "dataset_v3\\abund_pretraining_phase1_gut_and_nongut.csv.zip",
+    "bytes": 12905547
+  },
+  {
+    "path": "dataset_v3\\abund_pretraining_phase2_gut.csv.zip",
+    "bytes": 12528918
+  },
+  {
+    "path": "dataset_v3\\biogpt.pdf",
+    "bytes": 2045812
+  },
+  {
+    "path": "dataset_v3\\BiomeGPT_full_pipeline_colab.ipynb",
+    "bytes": 115225
+  },
+  {
+    "path": "dataset_v3\\BiomeGPT_full_pipeline_vscode_ssh.ipynb",
+    "bytes": 108814
+  },
+  {
+    "path": "dataset_v3\\BiomeGPT_repro_colab.ipynb",
+    "bytes": 33970
+  },
+  {
+    "path": "dataset_v3\\biomegpt_repro_train.py",
+    "bytes": 19856
+  },
+  {
+    "path": "dataset_v3\\biomegpt_taxonomy_pipeline.py",
+    "bytes": 64050
+  },
+  {
+    "path": "dataset_v3\\ExVal\\df_validation_data.csv",
+    "bytes": 10267482
+  },
+  {
+    "path": "dataset_v3\\ExVal\\df_validation_data_metadata.csv",
+    "bytes": 22721
+  },
+  {
+    "path": "dataset_v3\\filter_perPhenoMasking.py",
+    "bytes": 37188
+  },
+  {
+    "path": "dataset_v3\\meta_finetuning_gut_prev3.csv",
+    "bytes": 563062
+  },
+  {
+    "path": "dataset_v3\\meta_pretraining_phase1_gut_and_nongut.csv",
+    "bytes": 569927
+  },
+  {
+    "path": "dataset_v3\\meta_pretraining_phase2_gut.csv",
+    "bytes": 563062
+  },
+  {
+    "path": "dataset_v3\\meta_pretraining_phase2_gut_batch_annotation_external_enriched.csv",
+    "bytes": 9286593
+  },
+  {
+    "path": "dataset_v3\\meta_pretraining_phase2_gut_batch_external_summary.csv",
+    "bytes": 40693
+  },
+  {
+    "path": "dataset_v3\\meta_pretraining_phase2_gut_batch_phenotype_confounding_review_queue.csv",
+    "bytes": 17835
+  },
+  {
+    "path": "dataset_v3\\meta_pretraining_phase2_gut_unresolved_batch_review_queue.csv",
+    "bytes": 9265
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\external_enrichment_summary.json",
+    "bytes": 978
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\external_lookup_ega_runs_studies.tsv",
+    "bytes": 1287793
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\external_lookup_ena_samples.tsv",
+    "bytes": 1419153
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\external_lookup_ena_studies.tsv",
+    "bytes": 71822
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\external_lookup_ncbi_biosample_fallback.tsv",
+    "bytes": 98855
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\external_lookup_ncbi_sra_runinfo.tsv",
+    "bytes": 220350
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\meta_pretraining_phase2_gut_batch_annotation_external_enriched.xlsx",
+    "bytes": 3838910
+  },
+  {
+    "path": "dataset_v3\\outputs_batch_annotation_phase2\\README_external_batch_annotation.md",
+    "bytes": 835
+  },
+  {
+    "path": "dataset_v3\\readme.txt",
+    "bytes": 21725
+  },
+  {
+    "path": "dataset_v3\\requirements_taxonomy_pipeline.txt",
+    "bytes": 63
+  },
+  {
+    "path": "dataset_v3\\species_taxonomy_filled_validated_Serena.xlsx",
+    "bytes": 71923
+  },
+  {
+    "path": "dataset_v3\\Taxonomy_BiomeGPT_workflow.ipynb",
+    "bytes": 88010
+  },
+  {
+    "path": "docs\\paths.json",
+    "bytes": 860
+  },
+  {
+    "path": "docs\\project_memory.md",
+    "bytes": 2797
+  },
+  {
+    "path": "docs\\README.md",
+    "bytes": 454
+  },
+  {
+    "path": "docs\\scgpt_batch_correction_reference.md",
+    "bytes": 1747
+  },
+  {
+    "path": "docs\\scgpt_biogpt_bridge.md",
+    "bytes": 1318
+  },
+  {
+    "path": "package_file_manifest.json",
+    "bytes": 4031
+  },
+  {
+    "path": "README_START_HERE.md",
+    "bytes": 1023
+  },
+  {
+    "path": "requirements_vscode.txt",
+    "bytes": 371
+  },
+  {
+    "path": "scripts\\bootstrap_smoke_check.py",
+    "bytes": 1619
+  },
+  {
+    "path": "UPLOAD_MANIFEST.md",
+    "bytes": 771
+  }
+]

@@ -1,0 +1,49 @@
+diff --git a/data/cellxgene/build_large_scale_data.py b/data/cellxgene/build_large_scale_data.py
+index 78f219d..6ec504a 100644
+--- a/data/cellxgene/build_large_scale_data.py
++++ b/data/cellxgene/build_large_scale_data.py
+@@ -221,4 +221,12 @@ for f in files:
+         output_dir / f"{f.stem}.scb" / f"{main_table_key}.datatable.parquet"
+     )
+     if output_parquet_dt.exists():
+-        os.symlink(output_parquet_dt, target_dir / f"{f.stem}.datatable.parquet")
++        dst = target_dir / f"{f.stem}.datatable.parquet"
++        if dst.exists() or dst.is_symlink():
++            dst.unlink()
++        try:
++            os.symlink(output_parquet_dt, dst)
++        except OSError:
++            # Windows often blocks symlink creation without elevated privileges.
++            # Fall back to copying so pipeline can still run end-to-end.
++            shutil.copy2(output_parquet_dt, dst)
+diff --git a/scgpt/__init__.py b/scgpt/__init__.py
+index 570e508..c5d0112 100644
+--- a/scgpt/__init__.py
++++ b/scgpt/__init__.py
+@@ -18,12 +18,17 @@ if not logger.hasHandlers() or len(logger.handlers) == 0:
+ from . import model, tokenizer, scbank, utils, tasks
+ from .data_collator import DataCollator
+ from .data_sampler import SubsetsBatchSampler
+-from .trainer import (
+-    prepare_data,
+-    prepare_dataloader,
+-    train,
+-    define_wandb_metrcis,
+-    evaluate,
+-    eval_testdata,
+-    test,
+-)
++try:
++    from .trainer import (
++        prepare_data,
++        prepare_dataloader,
++        train,
++        define_wandb_metrcis,
++        evaluate,
++        eval_testdata,
++        test,
++    )
++except Exception:
++    # Keep core package importable in minimal environments that do not include
++    # optional training-time dependencies (e.g. torchtext/scib).
++    pass

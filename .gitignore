@@ -1,0 +1,44 @@
+# Local/private/system files
+.DS_Store
+Thumbs.db
+.env
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Git internals from source folders
+.git/
+.codex/
+.agents/
+
+# Large data/model artifacts
+*.pt
+*.pth
+*.ckpt
+*.h5ad
+*.h5
+*.parquet
+*.feather
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# Generated intermediates
+tmp/
+cache/
+runs/
+wandb/
+*.aux
+*.log
+*.out
+*.toc
+

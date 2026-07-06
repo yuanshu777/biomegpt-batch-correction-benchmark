@@ -1,0 +1,10 @@
+{
+  "phase1_species_count": 1012,
+  "phase2_species_count": 875,
+  "prev3_species_count": 513,
+  "exval_species_count": 2602,
+  "taxonomy_species_count": 1012,
+  "prev3_species_missing_from_exval": [
+    "Leuconostoc_virus_P793"
+  ]
+}

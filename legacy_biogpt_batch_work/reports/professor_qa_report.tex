@@ -1,0 +1,600 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{longtable}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue
+}
+
+\setlist[itemize]{leftmargin=1.25em}
+\setlist[enumerate]{leftmargin=1.5em}
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\filepath}[1]{\begingroup\urlstyle{tt}\small\url{#1}\endgroup}
+
+\title{\textbf{Professor Q\&A Notes: Taxonomy-aware BiomeGPT, Prediction Results, and Batch Correction}}
+\author{Yuanshu / Codex working report}
+\date{May 20, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{How To Use This Document}
+
+This is not the main technical report. It is a meeting-preparation document: likely
+questions, direct answers, and the reasoning behind our choices. The main message is that
+we have three connected pieces of work:
+
+\begin{enumerate}
+  \item A taxonomy-aware BiomeGPT model for microbiome representation learning.
+  \item A Healthy-vs-Diseased prediction pipeline with external validation.
+  \item A batch-effect diagnostic and preliminary adversarial correction pipeline.
+\end{enumerate}
+
+\section{One-Minute Summary}
+
+\textbf{What did we build?} We reproduced a BiomeGPT-style microbiome transformer and
+extended it with taxonomy-aware species embeddings. Each sample is represented by a
+sample-level \code{<cls>} embedding, and each microbial species has a learned species
+embedding informed by taxonomy.
+
+\textbf{Why taxonomy-aware?} Microbial species are not independent IDs. Species from the
+same genus, family, order, or phylum share biology. Adding rank-wise taxonomy embeddings
+gives the model an inductive bias that should improve interpretability and transfer when
+external cohorts have sparse or shifted species coverage.
+
+\textbf{Why batch diagnostics?} External validation can fail because the model learns
+study/cohort signals instead of robust disease biology. We reconstructed study/cohort
+batch-proxy labels from public accession metadata and tested whether the pretrained
+embeddings encode those labels.
+
+\textbf{What did we find?} Batch signal is present, but broad batch labels are strongly
+phenotype-confounded. Naive adversarial correction using broad labels can fail or even
+increase post-hoc batch separability. Conservative-safe labels remain the best correction
+target, but adversarial optimization needs careful scheduling.
+
+\section{What Is The Biological Task?}
+
+\textbf{Likely question: What biological problem are we solving?}
+
+We are studying whether gut microbiome species-abundance profiles can be represented by a
+foundation-model style transformer and used for Healthy-vs-Diseased prediction. A gut
+microbiome sample is a sparse vector of microbial species abundances. The biological
+challenge is that disease-associated microbial patterns are subtle, cohort-dependent, and
+strongly affected by geography, sequencing protocol, study design, and phenotype mixture.
+
+\textbf{Answer to give:}
+
+\begin{quote}
+We are not only training a binary classifier. We are trying to learn a transferable
+microbiome representation: species-level embeddings and sample-level embeddings that
+capture community structure, taxonomy, and disease-associated shifts across cohorts.
+\end{quote}
+
+\section{What Is BioGPT / BiomeGPT Doing?}
+
+\textbf{Likely question: How does the model represent a microbiome sample?}
+
+In our implementation, each sample is a sequence of species tokens. Each token has two
+parts:
+
+\begin{itemize}
+  \item a species identity representation;
+  \item an abundance-bin representation.
+\end{itemize}
+
+The model uses masked abundance reconstruction during pretraining. We randomly mask a
+fraction of observed nonzero species abundances and ask the transformer to reconstruct
+their abundance bins from the rest of the microbial community. This is analogous to masked
+language modeling, except the tokens are microbial species and the prediction target is an
+abundance bin rather than a word.
+
+\textbf{Key output representations:}
+
+\begin{itemize}
+  \item \textbf{Species prompt}: learned species representation, analogous to a gene
+  embedding in scGPT.
+  \item \textbf{Sample prompt}: final \code{<cls>} embedding for a microbiome sample,
+  analogous to a cell embedding in scGPT.
+\end{itemize}
+
+\section{What Did We Change: Taxonomy-aware BiomeGPT}
+
+\textbf{Likely question: What is new compared with a plain species-ID model?}
+
+The original species token can treat every species as an unrelated ID. We changed the
+species representation to include taxonomy:
+
+\begin{quote}
+\code{Domain + Kingdom + Phylum + Class + Order + Family + Genus + Species}
+\end{quote}
+
+This means two species from the same genus share the genus component; species from the
+same family share the family component; and so on.
+
+\textbf{Why this is biologically reasonable:}
+
+\begin{itemize}
+  \item Microbial traits are partially structured by taxonomy.
+  \item External datasets may contain related but not identical species.
+  \item Taxonomy-aware embeddings make the species latent space more interpretable.
+  \item The inductive bias may help transfer when species overlap across cohorts is
+  imperfect.
+\end{itemize}
+
+\section{What Data Did We Use?}
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Data component & Count / role \\
+\midrule
+Phase-1 pretraining species vocabulary & 1,012 species \\
+Phase-2 gut samples for pretraining / batch diagnostics & 13,332 samples \\
+Fine-tuning training set & \code{\_prev3} gut data \\
+External validation set & 927 samples \\
+ExVal label balance & 612 Healthy / 315 Diseased \\
+Conservative-safe batch-correction samples & 2,134 samples \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The ExVal set overlaps with 512 of the 513 \code{\_prev3} fine-tuning species, so external
+evaluation is feasible after reindexing species columns to the training vocabulary.
+
+\section{Pipeline Overview}
+
+\begin{enumerate}
+  \item \textbf{Phase 1 pretraining}: gut + non-gut samples, learn broad microbiome
+  ecological structure.
+  \item \textbf{Phase 2 pretraining}: gut-only adaptation, make the representation more
+  domain-specific for stool/gut samples.
+  \item \textbf{Embedding extraction}: extract species prompts and sample prompts.
+  \item \textbf{Healthy-vs-Diseased fine-tuning}: add classifier on sample prompt and train
+  on \code{\_prev3}.
+  \item \textbf{External validation}: evaluate on ExVal using accuracy, F1, AUROC,
+  macro-accuracy, macro-F1, and class-specific H/D accuracy.
+  \item \textbf{Batch diagnostics}: test whether phase-2 sample prompts encode
+  study/cohort labels.
+  \item \textbf{Adversarial correction}: preliminary GRL-based correction on
+  conservative-safe batch labels.
+\end{enumerate}
+
+\section{Important Parameters And What They Mean}
+
+\begin{longtable}{p{0.25\textwidth}p{0.65\textwidth}}
+\toprule
+Parameter & Meaning \\
+\midrule
+\endhead
+\code{bins = 32} &
+Continuous relative abundances are converted into 32 rank-based abundance bins. This
+reduces scale sensitivity across datasets and turns abundance prediction into a structured
+masked reconstruction problem. \\
+\code{mask\_ratio = 0.25} &
+During pretraining, 25\% of nonzero observed species are masked and reconstructed. This
+forces the model to learn community context rather than memorizing each input value. \\
+\code{d\_model = 512} &
+Hidden embedding dimension for species/sample representations. Larger values can capture
+more structure but increase training cost and overfitting risk. \\
+\code{nhead = 8} &
+Number of transformer attention heads. Multiple heads allow the model to learn different
+interaction patterns among species. \\
+\code{num\_layers = 8} &
+Number of transformer blocks. More layers increase capacity but also training instability
+and overfitting risk. \\
+\code{lr} &
+Learning rate. Pretraining used a larger learning rate than fine-tuning/correction because
+fine-tuning starts from an already learned checkpoint. \\
+\code{threshold} &
+Probability cutoff for calling a sample Diseased in H/D prediction. This strongly affects
+Healthy accuracy vs Diseased accuracy. \\
+\code{macro-F1} &
+Average of class-wise F1. Important because Healthy and Diseased counts are imbalanced. \\
+\code{AUROC} &
+Threshold-independent ranking metric. It can be good even if a chosen threshold gives poor
+Healthy/Diseased balance. \\
+\code{DAB weight} &
+Weight on the adversarial batch-discriminator loss. Larger is not automatically better. \\
+\code{GRL lambda} &
+Strength of gradient reversal. It controls how strongly the encoder is pushed to hide
+batch information. \\
+\code{min\_batch\_size = 10} &
+Minimum samples required for a batch label to be used in a probe/correction trial. This
+avoids unstable tiny classes. \\
+\end{longtable}
+
+\section{Why Did We Need Batch Labels?}
+
+\textbf{Likely question: Did the original metadata contain batch labels?}
+
+No. The original phase-2 gut metadata did not contain explicit sequencing batch, study ID,
+cohort ID, sequencing center, platform, country, library prep, or run-date columns. It
+contained phenotype and sample IDs. Therefore, we reconstructed a study/cohort-level
+batch-proxy annotation.
+
+\textbf{How we reconstructed labels:}
+
+\begin{itemize}
+  \item Public accession IDs such as \code{SAMEA}, \code{SAMN}, \code{SAMD},
+  \code{SRR}, and \code{EGAR} were queried against ENA, NCBI SRA/BioSample, and EGA.
+  \item Local IDs without public accessions were assigned prefix-derived labels only when
+  the pattern was structured and interpretable.
+  \item Every label received confidence: high, medium, or low.
+  \item Every batch label was checked for phenotype confounding.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{lrl}
+\toprule
+Confidence & Samples & Interpretation \\
+\midrule
+High & 9,389 & Exact public accession lookup returned study/cohort metadata \\
+Medium & 3,418 & Structured local prefix-derived cohort label \\
+Low & 525 & Unresolved or ambiguous local sample ID pattern \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{What Is Batch-Phenotype Confounding?}
+
+\textbf{Likely question: If the batch label is real, why not correct it directly?}
+
+A real study label is not automatically safe. Many microbiome studies are phenotype
+specific. For example, one study may contain only Healthy samples, while another study may
+contain mostly Parkinson's disease or colorectal cancer samples. If we remove study signal
+naively, we may also remove true disease biology.
+
+\textbf{Rule used:}
+
+\begin{quote}
+\code{phenotype\_confounding\_warning=True} if the top phenotype fraction in a batch is
+\code{>= 0.80} or if the batch has only one phenotype.
+\end{quote}
+
+\textbf{Observed confounding:}
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Label panel & Cramer's V & NMI & Median top phenotype frac. & Batches top frac. $\geq$ 0.8 \\
+\midrule
+High + medium & 0.802 & 0.519 & 1.000 & 79 / 105 \\
+High-only & 0.907 & 0.489 & 1.000 & 66 / 83 \\
+Conservative-safe & 0.683 & 0.457 & 0.549 & 0 / 17 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Answer to give:}
+
+\begin{quote}
+We can use broad labels for diagnostics, but final correction should use only labels that
+are high-confidence and not strongly phenotype-confounded.
+\end{quote}
+
+\section{What Is A Batch Probe?}
+
+\textbf{Likely question: What does the batch probe actually measure?}
+
+A batch probe is a shallow classifier trained on frozen sample embeddings. The model
+itself is not changed. If a logistic regression classifier can predict batch labels from
+the \code{<cls>} embedding, then the embedding contains batch-associated information.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Probe & Samples & Classes & Balanced acc. & Macro-F1 \\
+\midrule
+High + medium batch & 12,758 & 105 & 0.397 & 0.365 \\
+High-only batch & 9,340 & 83 & 0.386 & 0.355 \\
+Conservative-safe batch & 2,134 & 17 & 0.503 & 0.499 \\
+Healthy vs Diseased probe & 13,332 & 2 & 0.801 & 0.796 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Important distinction:} the H/D probe is not the final ExVal classifier. It is a
+diagnostic test showing that frozen pretrained embeddings contain H/D-separable signal in
+the phase-2 data.
+
+\section{How Did We Implement Batch Correction?}
+
+We adapted scGPT-style domain-adversarial training:
+
+\begin{itemize}
+  \item Attach a small batch discriminator to the \code{<cls>} sample embedding.
+  \item Use a Gradient Reversal Layer (GRL).
+  \item Keep the original masked abundance reconstruction loss.
+  \item Add a batch-discriminator loss with small weight.
+\end{itemize}
+
+The light correction objective was:
+
+\begin{quote}
+\code{total loss = reconstruction loss + 0.1 * batch cross-entropy loss}
+\end{quote}
+
+Because the batch branch uses GRL, the discriminator learns to predict batch, while the
+encoder receives reversed gradients and is pushed to make \code{<cls>} less
+batch-predictive.
+
+\section{What Did Batch Correction Show?}
+
+\begin{center}
+\small
+\begin{tabular}{p{0.44\textwidth}rrrr}
+\toprule
+Run & Batch F1 before & Batch F1 after & H/D F1 before & H/D F1 after \\
+\midrule
+Conservative-safe, batch size 8, DAB 0.1, 3 epochs & 0.499 & 0.476 & 0.796 & 0.789 \\
+High + medium, batch size 32, DAB 0.1, 3 epochs & 0.365 & 0.383 & 0.796 & 0.804 \\
+High-only, batch size 32, DAB 0.1, 3 epochs & 0.355 & 0.373 & 0.796 & 0.802 \\
+Conservative-safe, batch size 32, DAB 0.1, 3 epochs & 0.499 & 0.511 & 0.796 & 0.794 \\
+Conservative-safe, DAB 0.5, 5 epochs & 0.499 & 0.505 & 0.796 & 0.786 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Interpretation:} the first conservative-safe light run moved in the desired
+direction, but broader labels, larger batch size, and stronger DAB did not. This suggests
+the issue is not simply ``train more.'' The adversarial game is sensitive to label quality,
+batch size, and schedule.
+
+\section{Improved Experiment: Evaluate The Pretraining Objective Directly}
+
+\textbf{Likely question: Since BiomeGPT is a foundation model, should we evaluate batch
+correction only by H/D prediction?}
+
+No. H/D prediction is a downstream task. The core BiomeGPT pretraining task is masked
+abundance prediction. Therefore, batch correction should also be judged by whether the
+model preserves or improves masked abundance reconstruction, especially across
+study/cohort labels.
+
+I added a reconstruction diagnostic:
+
+\begin{quote}
+\filepath{dataset_v3/batch_reconstruction_diagnostics.py}
+\end{quote}
+
+It uses the same deterministic mask for each checkpoint, masks nonzero species positions,
+and evaluates mean squared error on the true abundance bins. It also computes per-batch
+MSE, batch MSE coefficient of variation, and batch MSE gap.
+
+\begin{center}
+\small
+\begin{tabular}{p{0.34\textwidth}rrrr}
+\toprule
+Checkpoint & Overall MSE & Safe-panel MSE & Safe-panel CV & Safe-panel gap \\
+\midrule
+Original phase-2 & 34.857 & 37.808 & 0.095 & 13.140 \\
+Conservative-safe, batch size 8 & 33.745 & 35.724 & 0.093 & 12.961 \\
+Conservative-safe, batch size 32 & 34.088 & 36.252 & 0.096 & 13.324 \\
+High + medium, batch size 32 & 33.049 & 35.770 & 0.096 & 12.736 \\
+High-only, batch size 32 & 33.373 & 36.061 & 0.098 & 13.453 \\
+Conservative-safe, DAB 0.5 & 33.853 & 35.256 & 0.092 & 12.554 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Interpretation:} reconstruction MSE generally improved after continued
+correction training, so these trials did not destroy the masked-abundance objective.
+However, lower reconstruction MSE alone is not enough: some runs improved reconstruction
+while the batch probe got worse. Therefore, model selection should require three
+conditions:
+
+\begin{enumerate}
+  \item batch probe decreases;
+  \item masked abundance reconstruction is preserved or improves;
+  \item H/D probe or downstream ExVal does not collapse.
+\end{enumerate}
+
+\textbf{Professor-facing wording:}
+
+\begin{quote}
+Because BiomeGPT is pretrained by masked abundance prediction, batch correction should not
+be evaluated only through disease classification. The primary foundation-model check is
+whether the corrected model remains good at masked abundance reconstruction, ideally with
+more balanced reconstruction error across batches. Disease prediction should be a
+downstream sanity check.
+\end{quote}
+
+\section{Why Was Prediction Around 0.5 Before, But Now Some Numbers Are 0.7--0.8?}
+
+\textbf{This is the most important clarification. These numbers are not all the same
+metric.}
+
+\begin{center}
+\small
+\begin{tabular}{lp{0.45\textwidth}p{0.22\textwidth}}
+\toprule
+Number & What it means & Comparable to ExVal macro-F1? \\
+\midrule
+0.559 & ExVal macro-F1 from selected full run at threshold 0.6 & Yes \\
+0.592 & Fixed-threshold ExVal macro-F1 at threshold 0.8 & Yes \\
+0.609 & Best value in threshold sensitivity diagnostic at threshold 0.9 & Partly; diagnostic threshold sweep \\
+0.769--0.783 & ExVal AUROC & No; threshold-independent ranking metric \\
+0.796 & Frozen H/D probe macro-F1 on phase-2 embeddings & No; diagnostic probe, not ExVal prediction \\
+0.96 & Internal training-side calibration macro-F1 during selection & No; internal split, not external validation \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Answer to give:}
+
+\begin{quote}
+The earlier 0.5--0.6 values are external validation macro-F1, which is the hardest and
+most relevant prediction metric. The 0.77--0.78 values are AUROC, not macro-F1. The 0.79
+value is a frozen embedding H/D probe on phase-2 data, not the final external prediction.
+So these numbers are not contradictory; they measure different questions.
+\end{quote}
+
+\textbf{Why ExVal macro-F1 is lower than the internal calibration score:}
+
+\begin{itemize}
+  \item ExVal is a different external cohort with study/domain shift.
+  \item The classifier tends to over-call Diseased at lower thresholds, causing low Healthy
+  accuracy.
+  \item Macro-F1 penalizes imbalance between Healthy and Diseased performance.
+  \item Batch/study effects may make the learned disease signal less transferable.
+\end{itemize}
+
+\section{How To Explain The ExVal Result}
+
+The selected run had:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Metric & Value \\
+\midrule
+ExVal accuracy & 0.563 \\
+ExVal F1 & 0.602 \\
+ExVal AUROC & 0.783 \\
+ExVal macro-F1 & 0.559 \\
+Healthy accuracy & 0.353 \\
+Diseased accuracy & 0.971 \\
+Threshold & 0.6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The fixed threshold 0.8 run improved Healthy specificity:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Metric & Value \\
+\midrule
+ExVal accuracy & 0.593 \\
+ExVal AUROC & 0.770 \\
+ExVal macro-F1 & 0.592 \\
+Healthy accuracy & 0.407 \\
+Diseased accuracy & 0.956 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Interpretation:} the model ranks samples reasonably well by disease probability
+(AUROC around 0.77--0.78), but calibration/thresholding is poor under external shift. It
+predicts Diseased too often, which gives high Diseased accuracy but low Healthy accuracy.
+This is why macro-F1 is modest.
+
+\section{What If Professor Says Their Macro-F1 Is Around 0.7?}
+
+\textbf{Answer carefully:}
+
+\begin{quote}
+That may be true, but we need to confirm the exact evaluation protocol: split, external
+cohort, threshold selection, class labels, species alignment, whether metrics are macro-F1
+or AUROC, and whether threshold was tuned on external labels. Our current fully external
+macro-F1 is around 0.56--0.61 depending on threshold. We should not compare that directly
+to internal validation, AUROC, or an externally tuned threshold.
+\end{quote}
+
+\textbf{What to ask:}
+
+\begin{itemize}
+  \item Was the 0.7 value macro-F1, weighted F1, accuracy, or AUROC?
+  \item Was it measured on ExVal or on an internal split?
+  \item Was threshold selected on the training side only, or tuned using ExVal labels?
+  \item Were Healthy/Diseased labels constructed in the same way?
+  \item Were species columns aligned to the same vocabulary?
+  \item Did they use the same phase-2 checkpoint and the same \code{\_prev3} fine-tuning
+  set?
+\end{itemize}
+
+\section{What Should We Do If Batch And Phenotype Are Confounded?}
+
+\textbf{Do not blindly remove all batch signal.} If batch and phenotype are nearly the
+same variable, adversarial correction can erase disease biology.
+
+\textbf{Recommended approach:}
+
+\begin{enumerate}
+  \item Use broad labels only for diagnostics.
+  \item Use high-confidence, non-confounded labels for correction.
+  \item Keep post-correction H/D probes to check whether biological signal survives.
+  \item Use warm-up schedules for DAB/GRL instead of fixed full adversarial pressure.
+  \item Select correction checkpoints by a joint criterion: lower batch probe and
+  preserved H/D probe.
+  \item Only evaluate final value by downstream ExVal H/D metrics.
+\end{enumerate}
+
+\section{Why Broad Batch Correction Failed}
+
+Our ablation suggests several possible mechanisms:
+
+\begin{itemize}
+  \item Broad batch labels are heterogeneous and phenotype-confounded.
+  \item The discriminator-encoder adversarial game may be unstable.
+  \item The encoder may learn a new representation that is still batch-separable to a fresh
+  post-hoc probe.
+  \item There was no warm-up schedule; adversarial pressure was applied immediately.
+  \item Batch size changed adversarial dynamics; batch size 8 and 32 behaved differently.
+\end{itemize}
+
+\textbf{Meeting wording:}
+
+\begin{quote}
+The negative ablation is still informative. It shows that batch correction is not a
+one-line improvement. Label quality and phenotype confounding dominate. We need a cautious
+correction target and a scheduled adversarial optimization.
+\end{quote}
+
+\section{What Is The Best Next Experiment?}
+
+\begin{itemize}
+  \item Label panel: conservative-safe only.
+  \item Batch size: 8 or 16.
+  \item DAB weight: 0.02, 0.05, 0.1.
+  \item GRL/DAB warm-up over first 30--50\% of epochs.
+  \item Early stopping by lower safe-batch probe plus preserved H/D probe.
+  \item Then fine-tune H/D from the best corrected checkpoint and evaluate ExVal.
+\end{itemize}
+
+\section{Short Answers To Likely Questions}
+
+\begin{longtable}{p{0.34\textwidth}p{0.58\textwidth}}
+\toprule
+Question & Short answer \\
+\midrule
+\endhead
+Is this exact sequencing batch? &
+No. It is an externally enriched study/cohort batch-proxy annotation. Exact technical
+batch would require original run date, kit, center, instrument, and processing metadata. \\
+Why use batch proxies then? &
+Because they are enough to test whether embeddings encode study/cohort signal, which is a
+major source of external validation shift. \\
+Why not correct all high-confidence labels? &
+Because high-confidence study labels can still be disease-confounded. A real label can be
+unsafe. \\
+What does batch probe prove? &
+It proves batch labels are predictable from frozen embeddings; it does not by itself prove
+causality or solve correction. \\
+Why did broad adversarial correction increase batch probe? &
+Likely because labels are heterogeneous/confounded and the adversarial game can reorganize
+batch information rather than remove it. \\
+Is batch correction finished? &
+No. We have a working diagnostic and proof-of-concept pipeline, but final correction needs
+schedule tuning and ExVal validation. \\
+Why are 0.7--0.8 numbers appearing? &
+They are often AUROC or embedding-probe metrics, not ExVal macro-F1. The strict external
+macro-F1 is currently around 0.56--0.61 depending on threshold. \\
+What is the most defensible current claim? &
+Taxonomy-aware BiomeGPT learns biologically meaningful sample embeddings, but external
+prediction is limited by calibration/domain shift; batch correction is motivated but must
+be conservative. \\
+\bottomrule
+\end{longtable}
+
+\end{document}

@@ -1,0 +1,13 @@
+{
+  "root": "C:\\Users\\Yuanshu\\Desktop\\Ali lab",
+  "scgpt_project": "C:\\Users\\Yuanshu\\Desktop\\Ali lab\\scgpt\\model\\scGPT-main",
+  "biogpt_dataset_v3": "C:\\Users\\Yuanshu\\Desktop\\Ali lab\\biogpt\\dataset_v3",
+  "biogpt_colab_notebook": "C:\\Users\\Yuanshu\\Desktop\\Ali lab\\biogpt\\dataset_v3\\BiomeGPT_full_pipeline_colab.ipynb",
+  "taxonomy_xlsx": "C:\\Users\\Yuanshu\\Desktop\\Ali lab\\biogpt\\dataset_v3\\species_taxonomy_filled_validated_Serena.xlsx",
+  "exval_dir": "C:\\Users\\Yuanshu\\Desktop\\Ali lab\\biogpt\\dataset_v3\\ExVal",
+  "shared_memory_dir": "C:\\Users\\Yuanshu\\Desktop\\Ali lab\\shared_memory",
+  "colab_data_dir": "/content/drive/MyDrive/dataset_v3",
+  "colab_exval_dir": "/content/drive/MyDrive/dataset_v3/ExVal",
+  "colab_taxonomy_xlsx": "/content/drive/MyDrive/dataset_v3/species_taxonomy_filled_validated_Serena.xlsx"
+}
+

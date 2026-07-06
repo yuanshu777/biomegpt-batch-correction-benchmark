@@ -1,0 +1,81 @@
+batch_label_external_recommended,batch_n_samples,batch_n_phenotypes,batch_top_phenotype,batch_top_phenotype_count,batch_top_phenotype_fraction,phenotype_confounding_warning
+real_study:Ang_2021,22,1,Healthy,22,1.0,True
+real_study:Asnicar_2021,568,1,Healthy,568,1.0,True
+real_study:Backhed_2015,100,1,Healthy,100,1.0,True
+real_study:ChuDM_2017,41,1,Healthy,41,1.0,True
+real_study:Costea_2017,169,1,Healthy,169,1.0,True
+real_study:Davies_2020,44,1,Type 2 Diabetes,44,1.0,True
+real_study:De_Filippis_2019,99,1,Healthy,99,1.0,True
+real_study:D’Souza_2021,128,1,Healthy,128,1.0,True
+real_study:Feng_2015,46,1,Colorectal Cancer,46,1.0,True
+real_study:FrankelAE_2017,39,1,Melanoma,39,1.0,True
+real_study:GopalakrishnanV_2018,25,1,Melanoma,25,1.0,True
+real_study:Gu_2017,94,1,Type 2 Diabetes,94,1.0,True
+real_study:HMP1_Phase-I):_Structure,507,1,Healthy,507,1.0,True
+real_study:HansenLBS_2018,58,1,Healthy,58,1.0,True
+real_study:Huang_2019,113,1,Ankylosing Spondylitis,113,1.0,True
+real_study:Jacobson_2021,82,1,Healthy,82,1.0,True
+real_study:Karlsson_2013,53,1,Type 2 Diabetes,53,1.0,True
+real_study:KaurK_2020,31,1,Healthy,31,1.0,True
+real_study:KeohaneDM_2020,116,1,Healthy,116,1.0,True
+real_study:Kim_2021,61,1,Healthy,61,1.0,True
+real_study:Le_Chatelier_2013,88,1,Healthy,88,1.0,True
+real_study:LeeKA_2022,165,1,Melanoma,165,1.0,True
+real_study:LifeLinesDeep_2016,1135,1,Healthy,1135,1.0,True
+real_study:Liu_2016,110,1,Healthy,110,1.0,True
+real_study:Lokmer_2019,37,1,Healthy,37,1.0,True
+real_study:Loomba_2017,86,1,Nonalcoholic Fatty Liver Disease,86,1.0,True
+real_study:MatsonV_2018,39,1,Melanoma,39,1.0,True
+real_study:Mehta_2018,301,1,Healthy,301,1.0,True
+real_study:Nagata_2022,43,1,Pancreatic Cancer,43,1.0,True
+real_study:Obregon-Tito_2015,20,1,Healthy,20,1.0,True
+real_study:Pasolli_2019,142,1,Healthy,142,1.0,True
+real_study:PehrssonE_2016,93,1,Healthy,93,1.0,True
+real_study:PetersBA_2019,27,1,Melanoma,27,1.0,True
+real_study:Qi_2019,43,1,Healthy,43,1.0,True
+real_study:Qin_2014,164,1,Liver Cirrhosis,164,1.0,True
+real_study:Rettedal_2021,35,1,Healthy,35,1.0,True
+real_study:Roager_2019,50,1,Healthy,50,1.0,True
+real_study:Schirmer_2016,385,1,Healthy,385,1.0,True
+real_study:ShaoY_2019,752,1,Healthy,752,1.0,True
+real_study:Smits_2017,38,1,Healthy,38,1.0,True
+real_study:Sun_2021,42,1,Healthy,42,1.0,True
+real_study:Tett_2019,110,1,Healthy,110,1.0,True
+real_study:Thomas_2019,27,1,Colorectal Adenoma,27,1.0,True
+real_study:VilaAV_2018,355,1,Inflammatory Bowel Disease,355,1.0,True
+real_study:Wallen_2022,490,1,Parkinson’s Disease,490,1.0,True
+real_study:WampachL_2018,29,1,Healthy,29,1.0,True
+real_study:WindTT_2020,20,1,Melanoma,20,1.0,True
+real_study:Xie_2016,130,1,Healthy,130,1.0,True
+real_study:Yachida_2019,217,1,Colorectal Cancer,217,1.0,True
+real_study:YassourM_2016,20,1,Healthy,20,1.0,True
+real_study:Yassour_2018,42,1,Healthy,42,1.0,True
+real_study:Zeevi_2015,900,1,Healthy,900,1.0,True
+real_study:BrooksB_2017,30,2,Premature Born,29,0.9666666666666667,True
+real_study:RosaBA_2018,14,2,Soil-Transmitted Helminths,12,0.8571428571428571,True
+real_study:Zhu_2021,132,2,Graves’ Disease,100,0.7575757575757576,False
+real_study:DavidLA_2015,30,2,Acute Diarrhea,21,0.7,False
+real_study:Jie_2017,306,2,Atherosclerotic Cardiovascular Disease,214,0.6993464052287581,False
+real_study:YeZ_2018,65,2,Healthy,45,0.6923076923076923,False
+real_study:Zeller_2014,134,2,Colorectal Cancer,90,0.6716417910447762,False
+real_study:KieserS_2018,27,2,Acute Diarrhea,18,0.6666666666666666,False
+real_study:LiSS_2016,15,2,Metabolic Syndrome,10,0.6666666666666666,False
+real_study:Vogtmann_2016,81,2,Colorectal Cancer,51,0.6296296296296297,False
+real_study:Zhang_2015,163,2,Rheumatoid Arthritis,102,0.6257668711656442,False
+real_study:Ananthakrishnan_2017,64,2,Ulcerative Colitis,40,0.625,False
+real_study:Yu_2015,128,2,Colorectal Cancer,75,0.5859375,False
+real_study:Ventura_2019,43,2,Multiple Sclerosis,24,0.5581395348837209,False
+real_study:Heitz-BuschartA_2016,18,2,Type 1 Diabetes,10,0.5555555555555556,False
+real_study:He_2017,86,2,Crohn’s Disease,46,0.5348837209302325,False
+real_study:ZhuF_2020,171,2,Schizophrenia,90,0.5263157894736842,False
+real_study:Nielsen_2014,158,3,Healthy,82,0.5189873417721519,False
+real_study:Yang_2020,170,2,Colorectal Cancer,87,0.5117647058823529,False
+real_study:RubelMA_2020,175,2,Soil-Transmitted Helminths,89,0.5085714285714286,False
+real_study:Weng_2019,79,3,Crohn’s Disease,40,0.5063291139240507,False
+real_study:Qin_2012,369,2,Type 2 Diabetes,186,0.5040650406504065,False
+real_study:NagySzakalD_2017,100,2,Healthy,50,0.5,False
+real_study:Yang_2021,186,2,Healthy,93,0.5,False
+real_study:Schirmer_2018,83,3,Crohn’s Disease,39,0.46987951807228917,False
+real_study:Lloyd-Price_2019,86,3,Crohn’s Disease,39,0.45348837209302323,False
+real_study:IaniroG_2022,52,4,Clostridioides Difficile Infection,22,0.4230769230769231,False
+real_study:MetaCardis_2020_a,1830,6,Type 2 Diabetes,550,0.3005464480874317,False

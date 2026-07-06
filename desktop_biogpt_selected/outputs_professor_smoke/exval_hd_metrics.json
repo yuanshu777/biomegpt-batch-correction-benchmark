@@ -1,0 +1,47 @@
+{
+  "selected_epoch": 1,
+  "selection_history": [
+    {
+      "epoch": 1,
+      "loss": 0.6985767483711243,
+      "accuracy": 0.5,
+      "f1": 0.6666666666666666,
+      "auroc": 0.8888888888888888,
+      "macro_accuracy": 0.5,
+      "macro_f1": 0.3333333333333333,
+      "macro_auroc": 0.8888888888888888,
+      "accuracy_h": 0.0,
+      "accuracy_d": 1.0,
+      "threshold": 0.1,
+      "n_h": 3,
+      "n_d": 3
+    }
+  ],
+  "exval_metrics": {
+    "accuracy": 0.5,
+    "f1": 0.6666666666666666,
+    "auroc": 0.5555555555555556,
+    "macro_accuracy": 0.5,
+    "macro_f1": 0.3333333333333333,
+    "macro_auroc": 0.5555555555555556,
+    "accuracy_h": 0.0,
+    "accuracy_d": 1.0,
+    "threshold": 0.1,
+    "n_h": 12,
+    "n_d": 12
+  },
+  "confusion_matrix": [
+    {
+      "true_label": "Healthy",
+      "pred_healthy": 0,
+      "pred_diseased": 12
+    },
+    {
+      "true_label": "Diseased",
+      "pred_healthy": 0,
+      "pred_diseased": 12
+    }
+  ],
+  "feature_selection_retained": null,
+  "augmented_training_size": 24
+}

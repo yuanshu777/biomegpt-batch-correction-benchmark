@@ -1,0 +1,9 @@
+rank,unique_values,unknown_like_values
+Domain,4,0
+Kingdom,6,0
+Phylum,31,9
+Class,40,23
+Order,63,109
+Family,122,103
+Genus,316,66
+Species,1012,0

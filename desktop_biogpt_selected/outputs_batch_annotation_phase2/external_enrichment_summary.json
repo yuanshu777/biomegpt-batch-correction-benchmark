@@ -1,0 +1,35 @@
+{
+  "n_samples": 13332,
+  "accession_type_counts": {
+    "local_or_unknown": 3943,
+    "BioSample_SAMEA": 3667,
+    "BioSample_SAMN": 3573,
+    "EGA_EGAR": 1490,
+    "SRA_SRR": 442,
+    "BioSample_SAMD": 217
+  },
+  "external_confidence_counts": {
+    "high": 9389,
+    "medium": 3418,
+    "low": 525
+  },
+  "external_source_counts": {
+    "ENA Portal API sample+study lookup": 7388,
+    "curated prefix-derived local cohort label": 2147,
+    "EGA Metadata API run+study lookup": 1490,
+    "prefix-derived local cohort label with external/name knowledge": 1271,
+    "unresolved local sample ID pattern": 525,
+    "NCBI SRA RunInfo lookup": 442,
+    "NCBI BioSample E-utilities fallback": 69
+  },
+  "needs_manual_review_counts": {
+    "true": 11198,
+    "false": 2134
+  },
+  "safe_for_final_batch_correction_conservative_counts": {
+    "false": 11198,
+    "true": 2134
+  },
+  "n_batch_labels": 218,
+  "n_batches_with_top_pheno_frac_ge_0_8": 192
+}

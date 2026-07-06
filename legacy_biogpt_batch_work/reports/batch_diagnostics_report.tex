@@ -1,0 +1,1444 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{longtable}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue
+}
+
+\setlist[itemize]{leftmargin=1.25em}
+\setlist[enumerate]{leftmargin=1.5em}
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\filepath}[1]{\begingroup\urlstyle{tt}\small\url{#1}\endgroup}
+
+\title{\textbf{Batch Effect Diagnostics for Taxonomy-aware BiomeGPT}}
+\author{Yuanshu / Codex working report}
+\date{May 20, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive Summary}
+
+We evaluated whether the taxonomy-aware BiomeGPT phase-2 sample embeddings encode
+batch/study information and whether scGPT-style adversarial batch correction is a
+reasonable next direction. The short answer is:
+
+\begin{itemize}
+  \item The batch labels used here are not raw metadata columns. They come from an
+  externally enriched study/cohort batch-proxy annotation built from public accession
+  lookup and conservative local-prefix rules.
+  \item After receiving the uploaded real study-id table
+  \code{BiomeGPT\_species\_samples\_studyIDs.csv}, we reimplemented the batch
+  diagnostics and correction trials using true sample-to-study alignment rather than
+  proxy labels.
+  \item The phase-2 sample embeddings do contain measurable batch signal.
+  \item However, most broad batch labels are strongly phenotype-confounded, so using all
+  labels for adversarial correction would risk removing true disease biology.
+  \item A conservative proof-of-concept using only safer batch labels ran end-to-end and
+  reduced safe-batch predictability modestly while mostly preserving Healthy-vs-Diseased
+  signal.
+  \item This is a working diagnostic and correction pipeline, but not yet a final
+  batch-corrected model.
+\end{itemize}
+
+The most important numerical result is shown below:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Probe & Before macro-F1 & After macro-F1 & Before bal. acc. & After bal. acc. \\
+\midrule
+Safe batch labels & 0.499 & 0.476 & 0.503 & 0.475 \\
+Healthy vs Diseased & 0.796 & 0.789 & 0.801 & 0.794 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This means the light adversarial correction moved in the desired direction: batch
+predictability decreased, while the biological Healthy-vs-Diseased signal was largely
+preserved.
+
+The newer real-study-id experiments are more stringent and should now be treated as the
+main evidence. With true study ids, study signal is strong, phenotype confounding is
+substantial, and naive GRL adversarial fine-tuning did not yet remove study signal. A
+post-hoc representation correction can remove study signal almost completely, but broad
+study correction also removes much of the H/D signal, confirming that study and phenotype
+are entangled in this dataset.
+
+\section{Scientific Question}
+
+After building the taxonomy-aware BiomeGPT model, the next question was whether
+the learned sample-level representations contain unwanted technical or cohort-specific
+batch information. This matters because external validation performance may be limited
+by study/cohort shift, and scGPT-style batch integration suggests a possible solution:
+make sample embeddings less predictive of batch while retaining biological phenotype
+information.
+
+The goal of this stage was therefore not to immediately claim batch correction, but to
+answer three diagnostic questions:
+
+\begin{enumerate}
+  \item Can batch/study labels be predicted from the BiomeGPT sample prompt?
+  \item Are those batch labels safe to remove, or are they confounded with phenotype?
+  \item If we run a conservative adversarial correction, does batch predictability go down
+  without destroying Healthy-vs-Diseased signal?
+\end{enumerate}
+
+\section{Batch Annotation Construction}
+
+\subsection{Why the data had to be processed}
+
+The original phase-2 gut metadata did not contain an explicit technical batch column.
+It also did not include a clean study ID, cohort ID, sequencing center, sequencing
+platform, country, library preparation, or run-date column. The available fields were:
+
+\begin{quote}
+\code{sample\_id}, \code{Phenotype}, \code{body\_site}, \code{Phenotype\_fullname}
+\end{quote}
+
+Because adversarial batch correction requires a batch or domain label, we first had to
+reconstruct the best available batch proxy. The goal was not to claim that every
+technical sequencing batch is known. Instead, the goal was to build an auditable
+study/cohort-level proxy that is good enough for diagnostic probing and cautious enough
+for conservative correction experiments.
+
+\subsection{How sample IDs were interpreted}
+
+The key observation was that many \code{sample\_id} values contain public database
+accessions. These accessions can be queried against public metadata services to recover
+study or cohort information. Each sample ID was first classified by pattern:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Pattern & Interpreted type \\
+\midrule
+\code{SAMN...} & NCBI BioSample accession \\
+\code{SAMEA...} & ENA/EBI BioSample accession \\
+\code{SAMD...} & DDBJ/INSDC BioSample accession \\
+\code{SRR...} & NCBI SRA run accession \\
+\code{EGAR...} & EGA run accession \\
+Other & Local or unknown sample ID \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For compound IDs such as \code{EGAR00001420100\_9002000001328080LL}, only the public
+run accession part was used for external lookup, while the original full sample ID was
+preserved.
+
+\subsection{External lookup strategy}
+
+Public accession-like IDs were mapped to study or cohort metadata using official public
+services:
+
+\begin{center}
+\begin{tabular}{lp{0.56\textwidth}}
+\toprule
+Source & What it provided \\
+\midrule
+ENA Portal API & Sample-to-study metadata for \code{SAMN}, \code{SAMEA}, and \code{SAMD} IDs \\
+NCBI SRA RunInfo & Run-to-BioProject/SRAStudy metadata for \code{SRR} IDs \\
+NCBI BioSample E-utilities & Fallback for older \code{SAMN} records missing usable ENA study accessions \\
+EGA Metadata API & Run-to-study metadata for \code{EGAR} IDs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The recommended batch label was then constructed from the strongest available study or
+cohort identifier. Examples include:
+
+\begin{quote}
+\code{study:PRJNA763023}, \code{study:PRJEB103248+PRJEB22893},
+\code{dbgap:phs000228}, \code{ega\_study:EGAS00001001704}
+\end{quote}
+
+If a sample mapped to multiple study accessions, the accessions were joined with
+\code{+}. This can happen when a public database links both an original project and a
+derived metagenomic assembly project.
+
+\subsection{Local IDs and confidence levels}
+
+Local sample IDs without public accessions could not be externally verified from this
+metadata alone. They were therefore handled cautiously. A prefix-derived label was
+assigned only when the local naming pattern was structured and biologically
+interpretable. Examples include \code{PRIMM...}, \code{M...}, \code{SID...},
+\code{wHAXPI...}, and \code{FMT...}. These labels are useful for diagnostics and manual
+review, but they are not treated as fully verified external batch labels.
+
+Every sample received an external confidence label:
+
+\begin{center}
+\begin{tabular}{lrl}
+\toprule
+Confidence & Samples & Meaning \\
+\midrule
+High & 9,389 & Exact public accession lookup returned study/cohort metadata \\
+Medium & 3,418 & Structured local prefix-derived cohort label \\
+Low & 525 & Unresolved or ambiguous local sample ID pattern \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This distinction matters because the batch probe can use broad labels for exploratory
+diagnostics, but final correction should not treat prefix-derived or unresolved labels as
+equally reliable.
+
+\subsection{Phenotype-confounding check}
+
+A real study label is not automatically safe for batch correction. Many microbiome
+studies are highly phenotype-specific. For example, one public study may contain only
+Healthy controls, while another may contain only Parkinson's disease samples. If we train
+an adversarial model to remove those study labels, the model may also remove true disease
+biology.
+
+Therefore, each proposed batch label was checked for phenotype composition:
+
+\begin{quote}
+\code{n\_samples}, \code{n\_phenotypes}, \code{top\_phenotype},
+\code{top\_phenotype\_count}, \code{top\_phenotype\_fraction}
+\end{quote}
+
+The warning rule was:
+
+\begin{quote}
+\code{phenotype\_confounding\_warning=True} if
+\code{top\_phenotype\_fraction >= 0.80} or \code{n\_phenotypes <= 1}
+\end{quote}
+
+This is intentionally strict. If a batch group is nearly one phenotype, correcting away
+that batch may also correct away the phenotype signal we want the model to preserve.
+
+\subsection{Conservative-safe label rule}
+
+For final batch-correction experiments, a sample was marked:
+
+\begin{quote}
+\code{safe\_for\_final\_batch\_correction\_conservative=True}
+\end{quote}
+
+only if both conditions were satisfied:
+
+\begin{quote}
+\code{external\_confidence == "high"} and
+\code{phenotype\_confounding\_warning == False}
+\end{quote}
+
+This produced:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Category & Samples \\
+\midrule
+Conservative-safe for final batch correction & 2,134 \\
+Not conservative-safe & 11,198 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The resulting annotation should therefore be described as an externally enriched
+study/cohort batch-proxy annotation, not as a perfect technical sequencing-batch table.
+The broad \code{batch\_label\_external\_recommended} field is appropriate for asking
+whether embeddings contain study/cohort signal. The conservative-safe subset is the
+appropriate starting point for asking whether adversarial correction can reduce batch
+signal without destroying phenotype signal.
+
+\section{Inputs Used}
+
+\subsection{Model checkpoint}
+
+We used the taxonomy-aware phase-2 checkpoint:
+
+\begin{quote}
+\code{dataset\_v3/outputs\_taxonomy\_notebook/taxonomy\_checkpoint\_stage2.pt}
+\end{quote}
+
+This checkpoint is the full taxonomy-aware run, not the earlier minimal BioGPT
+checkpoint. Its model structure contains rank-wise taxonomy embeddings, including
+Domain, Kingdom, Phylum, Class, Order, Family, Genus, and Species embeddings.
+
+\subsection{Data}
+
+The diagnostic data came from the phase-2 gut pretraining set and the externally enriched
+batch annotation file:
+
+\begin{quote}
+\code{dataset\_v3/abund\_pretraining\_phase2\_gut.csv.zip}
+
+\code{dataset\_v3/meta\_pretraining\_phase2\_gut\_batch\_annotation\_external\_enriched.csv}
+\end{quote}
+
+The final diagnostic matrix contained:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Quantity & Count \\
+\midrule
+Phase-2 gut samples & 13,332 \\
+Sample embedding dimension & 512 \\
+Checkpoint species vocabulary & 1,012 \\
+Unique recommended batch labels & 218 \\
+High-confidence external labels & 9,389 \\
+Medium-confidence labels & 3,418 \\
+Low-confidence labels & 525 \\
+Conservative-safe batch-correction samples & 2,134 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Method: Sample Prompt Extraction}
+
+For each phase-2 gut sample, we extracted the BiomeGPT sample prompt, defined as the
+final-layer \code{<cls>} embedding from the pretrained taxonomy-aware transformer.
+The extraction procedure was:
+
+\begin{enumerate}
+  \item Load the taxonomy-aware phase-2 checkpoint.
+  \item Load the phase-2 abundance matrix.
+  \item Align abundance rows to the batch annotation metadata by sample ID.
+  \item Reindex abundance columns to the checkpoint species vocabulary.
+  \item Convert relative abundance values to 32 rank-based abundance bins.
+  \item Run the pretrained model in inference mode and save the \code{<cls>} embedding.
+\end{enumerate}
+
+This produced an embedding matrix:
+
+\begin{quote}
+\code{X\_sample \(\in\) R\^{}(13332 x 512)}
+\end{quote}
+
+The cached output is:
+
+\begin{quote}
+\code{dataset\_v3/outputs\_batch\_diagnostics\_taxonomy/phase2\_sample\_prompt\_embeddings.npz}
+\end{quote}
+
+\section{Method: Batch Probe}
+
+\subsection{What is a batch probe?}
+
+A batch probe is a shallow supervised classifier trained on frozen model embeddings.
+Here, the input is the sample prompt \code{<cls>} embedding, and the target is a
+batch/study label. If the classifier predicts batch labels much better than a dummy
+baseline, then the embedding contains batch information.
+
+Importantly, this does not modify the BiomeGPT model. It is a diagnostic measurement.
+
+\subsection{Probe model}
+
+For each probe, we used:
+
+\begin{itemize}
+  \item Standard scaling of the 512-dimensional embeddings.
+  \item Multiclass logistic regression.
+  \item Class-balanced weighting.
+  \item A stratified 80/20 train-test split when feasible.
+  \item Metrics: accuracy, balanced accuracy, and macro-F1.
+  \item Dummy baseline: most-frequent-class classifier.
+\end{itemize}
+
+Balanced accuracy and macro-F1 are more informative than raw accuracy because batch and
+phenotype labels are imbalanced.
+
+\subsection{Batch label panels}
+
+We evaluated three batch-label panels:
+
+\begin{enumerate}
+  \item \textbf{High + medium labels}: broadest usable set for hypothesis generation.
+  \item \textbf{High-only labels}: exact external accession lookups where available.
+  \item \textbf{Conservative-safe labels}: labels passing the conservative safety rule for
+  final batch correction.
+\end{enumerate}
+
+For each panel, labels with fewer than 10 samples were excluded from the probe to avoid
+unstable tiny-class estimates.
+
+\section{Batch Probe Results}
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Probe target & Samples & Classes & Bal. acc. & Macro-F1 & Dummy bal. acc. \\
+\midrule
+High + medium batch labels & 12,758 & 105 & 0.397 & 0.365 & 0.010 \\
+High-only batch labels & 9,340 & 83 & 0.386 & 0.355 & 0.012 \\
+Conservative-safe batch labels & 2,134 & 17 & 0.503 & 0.499 & 0.059 \\
+Phenotype labels & 13,332 & 30 & 0.547 & 0.395 & 0.033 \\
+Healthy vs Diseased & 13,332 & 2 & 0.801 & 0.796 & 0.500 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Interpretation}
+
+The batch signal is real. For conservative-safe labels, the batch probe reached macro-F1
+0.499, compared with dummy macro-F1 0.014. This is much higher than chance and shows
+that study/batch information is encoded in the taxonomy-aware phase-2 sample prompts.
+
+At the same time, the embeddings also retain strong biological signal: a shallow
+Healthy-vs-Diseased probe reached macro-F1 0.796. This is important because batch
+correction should reduce batch signal without removing phenotype signal.
+
+\section{Method: Batch-Phenotype Confounding Analysis}
+
+Before doing any correction, we checked whether batch labels were confounded with
+phenotype. This is critical because if a batch label is nearly identical to a disease label,
+then adversarially removing batch information may also remove real disease biology.
+
+For each batch-label panel, we computed:
+
+\begin{itemize}
+  \item Batch-by-phenotype contingency table.
+  \item Cramer's V between batch and phenotype.
+  \item Normalized mutual information (NMI).
+  \item Top phenotype fraction per batch.
+  \item Number of batches where the top phenotype fraction is at least 0.8.
+\end{itemize}
+
+The top phenotype fraction is especially interpretable. For example, if one batch contains
+100 samples and 95 are Healthy, its top phenotype fraction is 0.95. Correcting away that
+batch could also correct away Healthy-specific biology.
+
+\section{Confounding Results}
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Label set & Cramer's V & NMI & Median top phenotype frac. & Batches top frac. $\geq$ 0.8 \\
+\midrule
+High + medium & 0.802 & 0.519 & 1.000 & 79 / 105 \\
+High-only & 0.907 & 0.489 & 1.000 & 66 / 83 \\
+Conservative-safe & 0.683 & 0.457 & 0.549 & 0 / 17 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Interpretation}
+
+The broad high+medium and high-only batch labels are strongly phenotype-confounded.
+Their median top phenotype fraction is 1.000, meaning many batches contain only one
+phenotype. These labels are not safe for direct adversarial removal.
+
+The conservative-safe label set is not perfectly independent of phenotype, but it is much
+less confounded. Its median top phenotype fraction is 0.549, and none of its 17 retained
+batches has top phenotype fraction above 0.8. Therefore, this set is the best starting
+point for a cautious batch-correction proof-of-concept.
+
+\section{Conservative Adversarial Correction Trial}
+
+\subsection{Why adversarial correction?}
+
+scGPT-style batch integration uses a domain-adversarial branch: a discriminator tries to
+predict batch from the sample representation, while gradient reversal makes the encoder
+learn representations that are less batch-predictive. We adapted that idea to BiomeGPT by
+using the \code{<cls>} sample prompt as the representation for batch discrimination.
+
+\subsection{What exactly was corrected?}
+
+This was not a new pretraining run from scratch. The trial continued training from the
+existing taxonomy-aware phase-2 checkpoint:
+
+\begin{quote}
+\filepath{dataset_v3/outputs_taxonomy_notebook/taxonomy_checkpoint_stage2.pt}
+\end{quote}
+
+The correction target was the sample-level \code{<cls>} embedding produced by the
+taxonomy-aware transformer. This is the same sample prompt used by the downstream probes.
+The goal was to make this \code{<cls>} embedding less predictive of conservative-safe
+study/cohort labels while keeping the original masked-abundance reconstruction behavior.
+
+We did not train on all batch labels. The adversarial branch used only rows satisfying:
+
+\begin{quote}
+\code{safe\_for\_final\_batch\_correction\_conservative=True}
+\end{quote}
+
+and retained only batch classes with at least 10 samples. This gave:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Quantity & Value \\
+\midrule
+Safe training samples & 2,134 \\
+Batch classes & 17 \\
+Minimum retained class size & 43 \\
+Maximum retained class size & 278 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Implementation details}
+
+The implementation is in:
+
+\begin{quote}
+\filepath{dataset_v3/batch_adversarial_correction.py}
+\end{quote}
+
+The data flow was:
+
+\begin{enumerate}
+  \item Load the taxonomy-aware phase-2 checkpoint.
+  \item Load the phase-2 gut abundance matrix.
+  \item Align abundance rows to the enriched batch annotation table.
+  \item Filter to conservative-safe samples.
+  \item Reindex abundance columns to the checkpoint species vocabulary.
+  \item Convert abundance values to 32 rank-based bins.
+  \item Continue training the BiomeGPT encoder with the original reconstruction objective
+  plus a small adversarial batch objective on the \code{<cls>} token.
+\end{enumerate}
+
+\subsection{Batch discriminator}
+
+The adversarial branch was a small multilayer perceptron attached to the \code{<cls>}
+embedding. Its architecture was:
+
+\begin{quote}
+\code{LayerNorm(512) -> Linear(512, 256) -> ReLU -> Dropout(0.1)}
+
+\code{-> Linear(256, 128) -> ReLU -> Dropout(0.1) -> Linear(128, 17)}
+\end{quote}
+
+The discriminator's direct task is ordinary multiclass batch classification. It receives
+the \code{<cls>} embedding and predicts one of the 17 conservative-safe batch labels.
+
+\subsection{Gradient reversal mechanism}
+
+The important point is that the discriminator is connected through a gradient reversal
+layer (GRL). In the forward pass, GRL behaves like the identity function:
+
+\begin{quote}
+\code{GRL(x) = x}
+\end{quote}
+
+In the backward pass, it multiplies the gradient by \code{-lambda}. In this trial:
+
+\begin{quote}
+\code{grl\_lambda = 1.0}
+\end{quote}
+
+This creates an adversarial objective:
+
+\begin{itemize}
+  \item The discriminator learns to predict batch from the \code{<cls>} embedding.
+  \item The encoder receives the reversed gradient, so it learns to make the
+  \code{<cls>} embedding less useful for batch prediction.
+\end{itemize}
+
+Therefore, the discriminator and encoder have opposite goals. The discriminator tries to
+recover batch labels; the encoder tries to hide batch information while still solving the
+masked abundance reconstruction task.
+
+\subsection{Training objective}
+
+For each mini-batch, we generated a random species-token mask using:
+
+\begin{quote}
+\code{mask\_ratio = 0.25}
+\end{quote}
+
+The model then encoded the binned abundance vector with the mask applied. The species
+token hidden states were sent to the reconstruction head, and the \code{<cls>} hidden
+state was sent to the batch discriminator.
+
+The optimized loss was:
+
+\begin{quote}
+\code{total loss = reconstruction loss + dab\_weight * batch cross-entropy loss}
+\end{quote}
+
+with:
+
+\begin{quote}
+\code{dab\_weight = 0.1}
+\end{quote}
+
+The reconstruction loss was mean-squared error on masked nonzero abundance bins. The
+batch loss was cross-entropy over 17 conservative-safe batch classes. Because the batch
+loss passes through GRL, minimizing this total loss trains the discriminator normally but
+pushes the encoder in the opposite direction for the batch component.
+
+\subsection{Why this is a light correction}
+
+This run was intentionally conservative. The settings were:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Hyperparameter & Value \\
+\midrule
+Epochs & 3 \\
+Training batch size & 8 \\
+Learning rate & 2e-5 \\
+Weight decay & 1e-4 \\
+Mask ratio & 0.25 \\
+DAB weight & 0.1 \\
+GRL lambda & 1.0 \\
+Discriminator dropout & 0.1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+It is ``light'' because the model is only continued for 3 epochs and the adversarial term
+has small weight. The main training pressure remains the original masked-abundance
+reconstruction objective. This reduces the risk of damaging the pretrained microbiome
+representation before we have downstream validation.
+
+\subsection{Checkpoint and evaluation workflow}
+
+After the 3-epoch correction run, the corrected model was saved as:
+
+\begin{quote}
+\filepath{dataset_v3/outputs_batch_adversarial_taxonomy/taxonomy_checkpoint_stage2_batch_adversarial_safe.pt}
+\end{quote}
+
+Then we re-extracted \code{<cls>} embeddings for all 13,332 phase-2 gut samples from the
+corrected checkpoint and reran the same frozen logistic-regression probes:
+
+\begin{itemize}
+  \item safe-batch probe on conservative-safe batch labels;
+  \item Healthy-vs-Diseased probe on all samples.
+\end{itemize}
+
+The desired outcome was not maximum downstream disease performance yet. The immediate
+criterion was directional: safe-batch probe performance should decrease, while
+Healthy-vs-Diseased probe performance should remain close to the uncorrected baseline.
+
+\section{Adversarial Trial Results}
+
+\subsection{Trial A: light correction}
+
+Settings:
+
+\begin{itemize}
+  \item Epochs: 3
+  \item DAB weight: 0.1
+  \item Gradient reversal lambda: 1.0
+  \item Safe training samples: 2,134
+  \item Batch classes: 17
+\end{itemize}
+
+Training history:
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Epoch & Total loss & Reconstruction loss & DAB loss & DAB train acc. \\
+\midrule
+1 & 37.924 & 37.645 & 2.790 & 0.103 \\
+2 & 37.471 & 37.198 & 2.733 & 0.143 \\
+3 & 37.607 & 37.337 & 2.703 & 0.147 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The DAB training accuracy increased from 0.103 to 0.147, showing that the discriminator
+was learning some batch signal during training. Because the discriminator was connected
+through GRL, that same signal produced reversed gradients for the encoder.
+
+Before/after probe results:
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Probe & Before macro-F1 & After macro-F1 & Before bal. acc. & After bal. acc. \\
+\midrule
+Safe batch labels & 0.499 & 0.476 & 0.503 & 0.475 \\
+Healthy vs Diseased & 0.796 & 0.789 & 0.801 & 0.794 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This is the best current trial. Batch predictability decreased modestly, while
+Healthy-vs-Diseased predictability was mostly preserved.
+
+\subsection{Trial B: stronger correction}
+
+Settings:
+
+\begin{itemize}
+  \item Epochs: 5
+  \item DAB weight: 0.5
+  \item Gradient reversal lambda: 1.0
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Probe & Before macro-F1 & After macro-F1 & Before bal. acc. & After bal. acc. \\
+\midrule
+Safe batch labels & 0.499 & 0.505 & 0.503 & 0.505 \\
+Healthy vs Diseased & 0.796 & 0.786 & 0.801 & 0.790 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This stronger run did not improve batch correction. Batch predictability slightly
+increased, and H/D signal decreased slightly. This suggests that simply increasing
+adversarial weight is not sufficient; the schedule and training design need tuning.
+
+\section{Additional Label-Panel Ablation}
+
+After the initial conservative-safe run, we tested three label-panel choices under the
+same light adversarial setting:
+
+\begin{enumerate}
+  \item \textbf{High + medium labels}: all exact external labels plus structured
+  prefix-derived labels.
+  \item \textbf{High-only labels}: exact external database labels only, without removing
+  phenotype-confounded batches.
+  \item \textbf{Conservative-safe labels}: exact external labels after removing strongly
+  phenotype-confounded batches.
+\end{enumerate}
+
+The purpose was to separate two questions:
+
+\begin{itemize}
+  \item Does using broader labels create stronger batch removal?
+  \item Does increasing training scale or strength necessarily improve correction?
+\end{itemize}
+
+For this ablation, the script was generalized with:
+
+\begin{quote}
+\code{--label\_panel high\_medium | high\_only | conservative\_safe}
+\end{quote}
+
+and the three runs used the same light correction hyperparameters:
+
+\begin{quote}
+\code{epochs=3, dab\_weight=0.1, grl\_lambda=1.0, train\_batch\_size=32}
+\end{quote}
+
+\subsection{Ablation results}
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Training panel & Samples & Classes & Batch macro-F1 before & Batch macro-F1 after \\
+\midrule
+High + medium & 12,758 & 105 & 0.365 & 0.383 \\
+High-only & 9,340 & 83 & 0.355 & 0.373 \\
+Conservative-safe & 2,134 & 17 & 0.499 & 0.511 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Training panel & Batch bal. acc. before & Batch bal. acc. after & H/D macro-F1 after \\
+\midrule
+High + medium & 0.397 & 0.411 & 0.804 \\
+High-only & 0.386 & 0.405 & 0.802 \\
+Conservative-safe & 0.503 & 0.513 & 0.794 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+In this batch-size-32 ablation, none of the three label-panel runs reduced the target
+batch probe. The high+medium and high-only runs actually increased batch predictability.
+This is not the desired correction direction.
+
+\subsection{Comparison against earlier runs}
+
+The best directional result is still the earlier conservative-safe light run with
+\code{train\_batch\_size=8}:
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Run & Batch macro-F1 before & Batch macro-F1 after & H/D macro-F1 before & H/D macro-F1 after \\
+\midrule
+Conservative-safe, batch size 8, DAB 0.1, 3 epochs & 0.499 & 0.476 & 0.796 & 0.789 \\
+Conservative-safe, batch size 32, DAB 0.1, 3 epochs & 0.499 & 0.511 & 0.796 & 0.794 \\
+Conservative-safe, DAB 0.5, 5 epochs & 0.499 & 0.505 & 0.796 & 0.786 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This answers the ``should we simply train more or larger?'' question: probably not by
+itself. Stronger or larger updates did not reliably improve batch removal. In fact, the
+broader label panels and the stronger DAB run moved in the wrong direction for the batch
+probe.
+
+\subsection{Interpretation}
+
+These ablations support three conclusions:
+
+\begin{itemize}
+  \item Broad high+medium labels are useful for diagnostics, but they are too heterogeneous
+  and phenotype-confounded for naive adversarial correction.
+  \item High-only labels are externally verified, but many are still phenotype-confounded;
+  external verification alone does not make a label safe for correction.
+  \item Conservative-safe labels remain the most scientifically defensible correction
+  target, but optimization is sensitive. We should tune schedule and validation criteria
+  rather than only increasing epochs or DAB weight.
+\end{itemize}
+
+The next technical step should be a small hyperparameter sweep on conservative-safe labels:
+for example, DAB weight \code{0.02, 0.05, 0.1}, batch size \code{8 or 16}, and a gradual
+GRL/DAB warm-up schedule. The selection criterion should require lower conservative-safe
+batch probe performance while preserving Healthy-vs-Diseased probe performance.
+
+\section{Masked Abundance Reconstruction Diagnostic}
+
+\subsection{Why this diagnostic matters}
+
+BiomeGPT is a foundation model whose pretraining objective is masked abundance prediction.
+Healthy-vs-Diseased classification is a downstream task. Therefore, batch correction should
+not be evaluated only by H/D probe performance. A better foundation-model criterion is:
+
+\begin{quote}
+Does correction reduce batch predictability while preserving or improving masked
+abundance reconstruction?
+\end{quote}
+
+To evaluate this directly, we added:
+
+\begin{quote}
+\filepath{dataset_v3/batch_reconstruction_diagnostics.py}
+\end{quote}
+
+For each checkpoint, the script applies the same deterministic mask to nonzero abundance
+bins and computes reconstruction MSE on the masked positions. It also computes
+batch-stratified MSE summaries for the selected label panels.
+
+\subsection{Initial reconstruction results}
+
+\begin{center}
+\small
+\begin{tabular}{p{0.34\textwidth}rrrr}
+\toprule
+Checkpoint & Overall MSE & Safe-panel MSE & Safe-panel CV & Safe-panel gap \\
+\midrule
+Original phase-2 & 34.857 & 37.808 & 0.095 & 13.140 \\
+Conservative-safe, batch size 8 & 33.745 & 35.724 & 0.093 & 12.961 \\
+Conservative-safe, batch size 32 & 34.088 & 36.252 & 0.096 & 13.324 \\
+High + medium, batch size 32 & 33.049 & 35.770 & 0.096 & 12.736 \\
+High-only, batch size 32 & 33.373 & 36.061 & 0.098 & 13.453 \\
+Conservative-safe, DAB 0.5 & 33.853 & 35.256 & 0.092 & 12.554 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The main observation is that continued correction training did not destroy the masked
+abundance objective. Overall reconstruction MSE decreased for all corrected checkpoints
+relative to the original phase-2 checkpoint. The best conservative-safe batch-size-8 run
+also reduced safe-panel reconstruction MSE and slightly reduced the safe-panel
+batch-MSE gap.
+
+\subsection{Interpretation}
+
+This improves the evaluation design. The correct selection criterion should have three
+layers:
+
+\begin{enumerate}
+  \item \textbf{Batch removal}: post-hoc batch probe should decrease.
+  \item \textbf{Foundation objective preservation}: masked abundance reconstruction MSE
+  should remain stable or improve, ideally with lower per-batch MSE gap/CV.
+  \item \textbf{Downstream biological sanity}: H/D probe or ExVal performance should not
+  collapse.
+\end{enumerate}
+
+Importantly, lower reconstruction MSE alone is not enough. Some runs improved
+reconstruction while the batch probe increased. This means abundance modeling and batch
+removal must be evaluated jointly.
+
+\section{Discussion and Scientific Insights}
+
+\subsection{Batch labels are real, but not all are safe correction targets}
+
+The batch probe results show that the taxonomy-aware BiomeGPT sample embeddings encode
+study/cohort-associated signal. This supports the motivation for batch-effect diagnostics.
+However, the confounding analysis shows that many candidate batch labels are still tied to
+phenotype. This is especially true for the broad high+medium and high-only panels.
+
+The main insight is:
+
+\begin{quote}
+External study labels are useful for diagnostics, but external verification alone does not
+make them safe for correction.
+\end{quote}
+
+A label can be a real public study label and still be unsafe for adversarial correction if
+the study contains mostly one disease phenotype.
+
+\subsection{Phenotype confounding likely explains broad-label failure}
+
+For both broad-label adversarial trials, the target batch probe increased after training:
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Panel & Batch macro-F1 before & Batch macro-F1 after \\
+\midrule
+High + medium & 0.365 & 0.383 \\
+High-only & 0.355 & 0.373 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This suggests that the model did not learn a clean technical-batch removal operation.
+Because study and phenotype are entangled, the adversarial objective may push the encoder
+into a new representation that still separates study/cohort structure, or even separates
+phenotype-associated study structure more clearly.
+
+\subsection{More aggressive training is not automatically better}
+
+The stronger conservative-safe run also did not improve batch removal:
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Run & Batch macro-F1 after & H/D macro-F1 after \\
+\midrule
+Conservative-safe, DAB 0.1, batch size 8, 3 epochs & 0.476 & 0.789 \\
+Conservative-safe, DAB 0.5, 5 epochs & 0.505 & 0.786 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Therefore, the current limitation is probably not simply that the model was trained too
+little. Increasing DAB weight or epochs can make the adversarial objective less stable and
+may damage biological signal without removing batch signal.
+
+\subsection{The discriminator-encoder game may be unstable}
+
+Adversarial correction is a two-player optimization problem. The discriminator tries to
+predict batch from \code{<cls>}; the encoder tries to hide batch from the discriminator;
+the reconstruction loss tries to preserve microbiome abundance structure. If the
+discriminator learns too quickly, too slowly, or from noisy/confounded labels, the reversed
+gradient may not point toward a clean batch-invariant representation.
+
+This instability is a plausible explanation for why several runs increased post-hoc batch
+probe performance instead of decreasing it.
+
+\subsection{The encoder may learn new batch-separable structure}
+
+The adversarial discriminator only penalizes the batch directions it can exploit during
+training. After correction, we evaluate with a fresh frozen logistic-regression probe. If
+the after-probe performs better, that means batch information is still present, possibly in
+a different geometry. In other words, the encoder may hide batch from the training
+discriminator while still producing embeddings that remain separable by another classifier.
+
+This is why post-hoc probes are important: they test whether the final embedding space is
+actually less batch-predictive, not merely whether the training discriminator struggled.
+
+\subsection{No warm-up schedule is a weakness}
+
+The current implementation applies fixed adversarial pressure from the beginning:
+
+\begin{quote}
+\code{grl\_lambda = 1.0}, \quad \code{dab\_weight = fixed}
+\end{quote}
+
+This may be too abrupt. A more stable domain-adversarial setup would warm up the
+adversarial signal gradually:
+
+\begin{quote}
+start with low or zero DAB pressure, let reconstruction stabilize, then gradually increase
+GRL/DAB strength.
+\end{quote}
+
+This could prevent early adversarial gradients from pushing the pretrained representation
+into an unstable or newly batch-separable geometry.
+
+\subsection{Batch size changes adversarial dynamics}
+
+Batch size is not only a speed parameter in adversarial training. The best directional
+result used conservative-safe labels with batch size 8:
+
+\begin{quote}
+\code{batch macro-F1: 0.499 -> 0.476}
+\end{quote}
+
+but the otherwise similar batch-size-32 conservative-safe run moved in the wrong
+direction:
+
+\begin{quote}
+\code{batch macro-F1: 0.499 -> 0.511}
+\end{quote}
+
+This suggests that minibatch composition affects the discriminator-encoder game. Smaller
+batches may regularize the adversarial dynamics differently, while larger batches may make
+the discriminator updates smoother but not necessarily more useful for batch-invariant
+representations.
+
+\subsection{Overall interpretation}
+
+The data support the batch-correction idea, but not a final corrected model yet. A concise
+interpretation is:
+
+\begin{quote}
+Taxonomy-aware BiomeGPT embeddings encode study/cohort-associated signal. However, broad
+batch labels are strongly phenotype-confounded, and naive adversarial correction can fail
+or even increase post-hoc batch separability. The most promising direction is
+conservative-safe labels with a more careful adversarial schedule, rather than simply using
+more labels, more epochs, or a stronger DAB loss.
+\end{quote}
+
+\section{Real Study-ID Reimplementation}
+
+\subsection{Why this was necessary}
+
+The first batch pipeline used externally enriched proxy batch labels because the raw
+phase-2 metadata did not directly expose a clean study-id field. After the file
+\filepath{BiomeGPT_species_samples_studyIDs.csv} became available, we rebuilt the batch
+annotation around true sample-to-study mapping. This is scientifically better because the
+batch variable is now a real cohort/study identifier rather than an inferred proxy.
+
+The uploaded CSV had sample ids in the first column and study names in \code{study\_name}.
+Some rows contained unmatched quote characters, so the parser reads the file with quoting
+disabled, then strips quotes and normalizes whitespace. We then align by exact
+\code{sample\_id} to \filepath{dataset_v3/meta_pretraining_phase2_gut.csv}.
+
+\subsection{Real study-id coverage}
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Quantity & Count \\
+\midrule
+Rows in uploaded study-id file & 13,524 \\
+Phase-2 gut samples & 13,332 \\
+Phase-2 samples matched to real study id & 13,326 \\
+Phase-2 samples missing real study id & 6 \\
+Unique real studies in phase-2 gut & 80 \\
+Conservative-safe samples & 4,751 \\
+Conservative-safe studies & 26 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For matched samples, the new batch label is:
+
+\begin{quote}
+\code{batch\_label\_external\_recommended = real\_study:<study\_name>}
+\end{quote}
+
+All matched real-study labels are treated as high-confidence because they come from the
+uploaded explicit sample-to-study table. The old proxy labels remain useful history, but
+the real-study results supersede them for the next round of experiments.
+
+\subsection{Real study-id diagnostic probes}
+
+Using the original taxonomy-aware phase-2 checkpoint, we re-extracted the 512-dimensional
+sample-prompt embeddings and trained the same shallow logistic probes. Results:
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Probe panel & Samples & Classes & Macro-F1 & Balanced acc. \\
+\midrule
+Real study, high-only & 13,326 & 80 & 0.456 & 0.495 \\
+Real study, conservative-safe & 4,751 & 26 & 0.518 & 0.537 \\
+Healthy vs Diseased & 13,332 & 2 & 0.796 & 0.801 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The dummy balanced accuracy for 80 studies is only 0.0125, so a balanced accuracy near
+0.495 means the pretrained sample embeddings contain substantial real study information.
+The conservative-safe panel is not weaker; it is actually slightly easier to classify by
+study, probably because it contains fewer but more coherent studies.
+
+\subsection{Real study-id phenotype confounding}
+
+The real study labels confirm the central risk: study id and phenotype are not
+independent.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Panel & Studies & Cramer's V & NMI & Studies with top phenotype $\geq 0.8$ \\
+\midrule
+High-only real study & 80 & 0.792 & 0.526 & 54 \\
+Conservative-safe real study & 26 & 0.634 & 0.528 & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For the full high-only real-study panel, 52 of 80 studies are phenotype-pure under the
+available labels. This means that blindly removing all real-study information would also
+remove disease-associated structure. The conservative-safe filter is therefore still
+important: it does not remove all confounding, but it avoids the most obvious
+single-phenotype studies.
+
+\subsection{Real study-id adversarial correction trials}
+
+We then reran GRL/DAB adversarial correction using true study ids. This implementation
+continues phase-2 masked-abundance training and adds a domain-adversarial batch
+classifier on the \code{<cls>} embedding. We also added warm-up parameters:
+
+\begin{itemize}
+  \item \code{dab\_warmup\_epochs}: gradually increases DAB loss weight.
+  \item \code{grl\_warmup\_epochs}: gradually increases gradient-reversal strength.
+\end{itemize}
+
+The exact loss remains:
+
+\begin{quote}
+\code{total loss = masked-abundance reconstruction loss + effective\_dab\_weight * batch CE}
+\end{quote}
+
+with gradient reversal applied to the batch classifier input, so the discriminator learns
+to predict study while the encoder receives the reversed gradient.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Trial & Study macro-F1 before & Study macro-F1 after & H/D before & H/D after \\
+\midrule
+Safe, DAB 0.05, batch 8, warm-up & 0.518 & 0.580 & 0.796 & 0.798 \\
+Safe, DAB 0.10, batch 8, warm-up & 0.518 & 0.547 & 0.796 & 0.810 \\
+High-only, DAB 0.05, batch 16, warm-up & 0.456 & 0.493 & 0.796 & 0.804 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This is an important negative result. The model fine-tuning runs did not remove real
+study signal; independent post-hoc probes found study signal increased. At the same time,
+H/D performance stayed stable or improved. The most likely interpretation is that the
+reconstruction objective plus weak adversarial pressure continued to organize the
+embedding space around real cohort/phenotype structure, while the DAB objective was not
+strong or stable enough to force study-invariant representations.
+
+\subsection{Masked-abundance reconstruction after real-study GRL}
+
+Because BiomeGPT is fundamentally a masked-abundance foundation model, we also evaluated
+the main pretraining objective directly. We used the same deterministic nonzero-species
+mask for all checkpoints and computed masked abundance-bin MSE.
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Checkpoint & Overall MSE & Safe-panel MSE & High-only MSE \\
+\midrule
+Base phase-2 & 34.856 & 36.221 & 34.857 \\
+Safe GRL, DAB 0.05 & 33.235 & 33.852 & 33.235 \\
+Safe GRL, DAB 0.10 & 33.164 & 33.755 & 33.165 \\
+High-only GRL, DAB 0.05 & 32.911 & 34.225 & 32.911 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So the GRL trials did preserve and even improve masked-abundance reconstruction. The
+failure mode is not catastrophic forgetting. The failure mode is more specific: the
+model remains, or becomes more, linearly study-separable in the \code{<cls>} embedding.
+
+\subsection{Representation-level real-study correction baseline}
+
+To test whether real study signal is removable at all, we implemented a transparent
+post-hoc embedding correction baseline:
+
+\begin{quote}
+\code{x\_corrected = x - cross\_fitted\_study\_mean + cross\_fitted\_global\_mean}
+\end{quote}
+
+This is a mean-only study correction. We also tested a stronger mean+scale version that
+maps each study's embedding variance to the global variance. The correction is
+cross-fitted with stratified folds, so each sample is corrected using study means
+estimated from other samples, not from itself.
+
+\begin{center}
+\begin{tabular}{llrrrr}
+\toprule
+Panel & Method & Study F1 before & Study F1 after & H/D F1 before & H/D F1 after \\
+\midrule
+High-only & Mean-center & 0.456 & 0.002 & 0.795 & 0.473 \\
+High-only & Mean+scale & 0.456 & 0.008 & 0.795 & 0.471 \\
+Conservative-safe & Mean-center & 0.518 & 0.004 & 0.690 & 0.637 \\
+Conservative-safe & Mean+scale & 0.518 & 0.031 & 0.690 & 0.644 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This result is very useful. It shows that study signal can be removed from embeddings
+when we explicitly subtract study-level structure. However, it also shows why broad
+study correction is dangerous: high-only correction nearly destroys H/D separability.
+The conservative-safe panel has a much smaller biological cost, which supports the
+earlier decision to avoid obviously phenotype-confounded study labels.
+
+\subsection{Updated interpretation from real study ids}
+
+The real-study-id experiments change the story from ``we have a promising light GRL
+correction'' to a more precise conclusion:
+
+\begin{quote}
+Real study signal is strong and removable, but it is entangled with phenotype. Current
+model-level GRL fine-tuning preserves reconstruction but does not yet remove real study
+signal. Explicit embedding-level study centering removes study signal, and the biological
+damage is acceptable only under conservative-safe filtering.
+\end{quote}
+
+The next model-level step should therefore not simply increase epochs. It should translate
+the successful representation-level behavior into the training objective, for example by
+adding a mean-alignment penalty such as study-centroid matching/CORAL/MMD on
+\code{<cls>} embeddings while keeping masked-abundance reconstruction as the primary
+loss, and selecting checkpoints by three criteria: lower real-study probe, preserved
+masked-abundance MSE, and preserved H/D probe.
+
+\subsection{Follow-up: representation alignment inside training}
+
+We then tested whether the successful post-hoc real-study centering could be moved into
+model training. Two model-level variants were implemented.
+
+First, we added minibatch centroid alignment:
+
+\begin{quote}
+\code{loss = reconstruction loss + alignment\_weight * centroid\_alignment\_loss}
+\end{quote}
+
+The training loader was changed to use balanced study minibatches, so each minibatch
+contains multiple studies and multiple samples per study. This makes centroid estimates
+meaningful inside the batch.
+
+Second, we implemented cross-fitted centroid distillation. We first compute the same
+corrected targets that worked in post-hoc analysis:
+
+\begin{quote}
+\code{target = base\_embedding - cross\_fitted\_study\_mean + cross\_fitted\_global\_mean}
+\end{quote}
+
+Then the model is trained with:
+
+\begin{quote}
+\code{loss = reconstruction loss + target\_weight * MSE(unmasked\_<cls>, target)}
+\end{quote}
+
+An important debugging point: the target loss must be applied to the unmasked
+\code{sample\_prompt} embedding, because that is the representation used by the probes.
+Applying it to the masked pretraining embedding does not directly constrain the evaluated
+embedding.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Method & Study F1 before & Study F1 after & H/D before & H/D after & Recon MSE \\
+\midrule
+Base phase-2 & 0.518 & -- & 0.796 & -- & 34.856 \\
+Centroid align w10 & 0.518 & 0.598 & 0.796 & 0.807 & 33.697 \\
+Centroid align w50 & 0.518 & 0.579 & 0.796 & 0.819 & 33.628 \\
+Unmasked distill w10 & 0.518 & 0.532 & 0.796 & 0.801 & 33.656 \\
+Unmasked distill w50 & 0.518 & 0.556 & 0.796 & 0.802 & 33.587 \\
+Unmasked distill w200 & 0.518 & 0.576 & 0.796 & 0.800 & 33.656 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+These are useful negative results. All model-level alignment trials preserve or improve
+masked-abundance reconstruction, and H/D signal remains usable. However, none of these
+unconstrained backbone fine-tuning runs reduce real-study predictability. The independent
+study probe remains stronger than the original phase-2 embedding.
+
+The practical result is therefore:
+
+\begin{quote}
+Direct cross-fitted study centering currently works as a corrected representation, but
+simple GRL, minibatch centroid alignment, and centroid-target distillation are not yet
+sufficient to make the BiomeGPT backbone itself study-invariant.
+\end{quote}
+
+The corrected embedding files were saved for downstream use:
+
+\begin{itemize}
+  \item \filepath{dataset_v3/outputs_real_study_embedding_correction_saved/real_study_high_only_mean_center_corrected_embeddings.npz}
+  \item \filepath{dataset_v3/outputs_real_study_embedding_correction_saved/real_study_conservative_safe_mean_center_corrected_embeddings.npz}
+\end{itemize}
+
+\subsection{Follow-up: scGPT-style batch-conditioned decoder}
+
+Because scGPT uses batch-aware mechanisms such as batch labels, batch embeddings, and
+domain-specific batch normalization, we also tested whether BiomeGPT failed because it had
+no batch side-channel. The hypothesis was:
+
+\begin{quote}
+If study id is available to the reconstruction decoder, reconstruction can model
+study-specific abundance shifts without forcing the final sample embedding to carry all
+study information.
+\end{quote}
+
+We implemented a batch-conditioned residual reconstruction decoder:
+
+\begin{quote}
+\code{pred = base\_reconstruction\_head(h\_species) + residual\_head(h\_species, study\_id)}
+\end{quote}
+
+The study id is not given to \code{sample\_prompt}; it is only used by the residual
+decoder. The sample embedding is still trained toward the cross-fitted corrected target.
+We also tested an optional DAB loss and a detached reconstruction branch where
+reconstruction gradients do not update the encoder.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Trial & Study F1 before & Study F1 after & H/D before & H/D after \\
+\midrule
+Batch decoder, normalized target w50 & 0.518 & 0.565 & 0.796 & 0.805 \\
+Batch decoder + DAB 0.1 & 0.518 & 0.577 & 0.796 & 0.804 \\
+Batch decoder, detached recon encoder & 0.518 & 0.592 & 0.796 & 0.796 \\
+Batch decoder, raw target w1 & 0.518 & 0.558 & 0.796 & 0.803 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This did not solve real-study removal. The trials preserved H/D signal, but the
+independent real-study probe remained stronger than the base phase-2 embedding. The
+important interpretation is that adding a decoder-side batch residual only during late
+continued training is probably not equivalent to scGPT-style batch-aware pretraining.
+The batch-aware mechanism likely needs to be part of the architecture and training
+dynamics from earlier in pretraining, or implemented as a frozen embedding correction
+adapter rather than as unconstrained backbone fine-tuning.
+
+\subsection{Follow-up: batch-token continued pretraining}
+
+We then created a cleaner batch-aware continued-pretraining script:
+
+\begin{quote}
+\filepath{dataset_v3/batch_token_pretraining.py}
+\end{quote}
+
+During masked-abundance pretraining, the model sequence is:
+
+\begin{quote}
+\code{[CLS, STUDY, species\_1, species\_2, ...]}
+\end{quote}
+
+The attention mask lets species tokens attend to the \code{STUDY} token, so reconstruction
+has a batch side-channel. However, \code{CLS} does not attend to \code{STUDY}, and
+downstream embeddings are still extracted with the original unconditioned
+\code{model.sample\_prompt(bins)}.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Trial & Study F1 before & Study F1 after & H/D before & H/D after & Recon MSE \\
+\midrule
+Base phase-2 & 0.518 & -- & 0.796 & -- & 34.856 \\
+Batch token, reconstruction only & 0.518 & 0.529 & 0.796 & 0.799 & 33.582 \\
+Batch token + DAB 0.1 & 0.518 & 0.548 & 0.796 & 0.805 & 33.594 \\
+Batch token + corrected-target distill & 0.518 & 0.544 & 0.796 & 0.800 & 33.584 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+This is the most stable model-level batch-aware design so far. It improves
+masked-abundance reconstruction and keeps H/D signal, while the reconstruction-only run
+increases study separability only mildly. However, it still does not reduce real-study
+probe performance below the base phase-2 embedding. Adding DAB or corrected-target
+distillation made the independent study probe stronger.
+
+The interpretation is that a true study token side-channel helps reconstruction, but
+adding it after the phase-2 representation is already formed is probably too late to make
+the final sample embedding batch-invariant. To fully test the scGPT-style idea, the
+batch-token mechanism should be present earlier in pretraining, ideally before or at the
+start of phase2.
+
+\subsection{Recommended experimental design}
+
+The next experiment should be a controlled conservative-safe hyperparameter sweep:
+
+\begin{itemize}
+  \item Label panel: conservative-safe only.
+  \item Batch size: \code{8} or \code{16}.
+  \item DAB weight: \code{0.02}, \code{0.05}, \code{0.1}.
+  \item GRL/DAB schedule: gradual warm-up over the first 30--50\% of epochs.
+  \item Model selection: lower conservative-safe batch probe, preserved H/D probe, and no
+  large reconstruction degradation.
+\end{itemize}
+
+\section{Files Produced}
+
+\begin{longtable}{p{0.42\textwidth}p{0.50\textwidth}}
+\toprule
+File & Description \\
+\midrule
+\endhead
+\filepath{dataset_v3/batch_effect_diagnostics.py} &
+Script for extracting sample prompts, training batch/phenotype probes, computing
+confounding, and saving PCA plots. \\
+\filepath{dataset_v3/batch_adversarial_correction.py} &
+Script for adversarial correction using safe, high-only, or high+medium label panels,
+including GRL/DAB warm-up options. \\
+\filepath{dataset_v3/prepare_real_study_batch_annotation.py} &
+Script that parses the uploaded real study-id CSV, aligns it to phase-2 gut samples, and
+creates the real-study batch annotation table. \\
+\filepath{dataset_v3/real_study_embedding_correction.py} &
+Cross-fitted real-study embedding correction baseline using mean-center or mean+scale
+correction. \\
+\filepath{dataset_v3/outputs_batch_diagnostics_taxonomy/batch_effect_diagnostics_summary.json} &
+Main diagnostic summary. \\
+\filepath{dataset_v3/outputs_batch_diagnostics_real_study/batch_effect_diagnostics_summary.json} &
+Real-study-id diagnostic summary using the uploaded sample-to-study mapping. \\
+\filepath{dataset_v3/outputs_batch_diagnostics_taxonomy/probe_metrics.csv} &
+Batch, phenotype, and H/D probe metrics. \\
+\filepath{dataset_v3/outputs_real_study_embedding_correction/*compact_metrics.csv} &
+Compact before/after metrics for cross-fitted real-study embedding correction. \\
+\filepath{dataset_v3/outputs_batch_reconstruction_diagnostics_real_study/reconstruction_diagnostics_summary.csv} &
+Masked-abundance reconstruction MSE for the base and real-study GRL checkpoints. \\
+\filepath{dataset_v3/outputs_batch_diagnostics_taxonomy/*confounding_by_batch.csv} &
+Per-batch phenotype-confounding tables. \\
+\filepath{dataset_v3/outputs_batch_adversarial_taxonomy/taxonomy_checkpoint_stage2_batch_adversarial_safe.pt} &
+Best current conservative adversarial correction checkpoint. \\
+\filepath{dataset_v3/outputs_batch_diagnostics_taxonomy/batch_correction_status.md} &
+Short status summary for quick reporting. \\
+\filepath{dataset_v3/outputs_batch_diagnostics_taxonomy/batch_adversarial_trial_comparison.csv} &
+Summary table comparing label-panel ablations and stronger correction runs. \\
+\bottomrule
+\end{longtable}
+
+\section{Current Conclusion}
+
+The taxonomy-aware BiomeGPT phase-2 embeddings contain batch/study information, so the
+batch-correction idea is motivated. However, most candidate batch labels are strongly
+phenotype-confounded, so correcting on all batch labels would be scientifically risky.
+
+The earlier proxy-label conservative-safe adversarial trial provided a technical
+proof-of-concept: the full pipeline ran, and one light batch-size-8 run reduced safe-batch
+predictability with only a small drop in H/D signal. The newer real-study-id
+reimplementation is stricter and more informative. With true study ids, the current GRL
+fine-tuning preserves or improves masked-abundance reconstruction, but it does not remove
+real-study signal. Independent probes show real-study separability increases after the
+GRL trials.
+
+The strongest useful result right now is the cross-fitted representation-level correction:
+study centering nearly eliminates real-study predictability. But the biological cost is
+large when all high-confidence real study labels are used, and much smaller when only
+conservative-safe studies are used. Therefore, batch correction is feasible and motivated,
+but final model-level correction should be conservative and should optimize against real
+study ids, masked-abundance MSE, and H/D preservation together.
+
+\section{Recommended Next Steps}
+
+\begin{enumerate}
+  \item Treat the uploaded real study ids as the main batch annotation going forward.
+  \item Use conservative-safe real-study labels first; broad high-only study correction is
+  too phenotype-confounded.
+  \item Add a centroid-alignment/CORAL/MMD-style representation penalty to mimic the
+  successful embedding-level study centering inside model training.
+  \item Select checkpoints by three criteria: lower real-study probe, preserved or improved
+  masked-abundance MSE, and preserved H/D probe.
+  \item Fine-tune H/D from the best corrected checkpoint and compare ExVal metrics against
+  the uncorrected taxonomy-aware checkpoint.
+\end{enumerate}
+
+\end{document}

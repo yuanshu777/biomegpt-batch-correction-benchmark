@@ -1,0 +1,15 @@
+# Minimal research/smoke-test environment for VS Code SSH.
+pandas
+numpy
+scipy
+scikit-learn
+matplotlib
+seaborn
+umap-learn
+openpyxl
+jupyter
+ipykernel
+tqdm
+# Install torch separately if your SSH server has a specific CUDA version.
+# Example for CUDA 12.1: pip install torch --index-url https://download.pytorch.org/whl/cu121
+# CPU fallback: pip install torch

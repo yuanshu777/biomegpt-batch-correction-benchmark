@@ -1,0 +1,22 @@
+{
+  "threshold_used": 0.1,
+  "probability_range": {
+    "min": 0.5191445350646973,
+    "median": 0.5250675678253174,
+    "max": 0.5309267044067383
+  },
+  "prediction_counts": {
+    "pred_healthy": 0,
+    "pred_diseased": 24
+  },
+  "class_accuracy_formula_check": {
+    "accuracy_h_from_confusion_matrix": 0.0,
+    "accuracy_d_from_confusion_matrix": 1.0,
+    "matches_metrics": true
+  },
+  "auroc_uses_probabilities": true,
+  "flags": {
+    "all_predictions_one_class": true,
+    "low_probability_spread": true
+  }
+}

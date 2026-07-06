@@ -1,0 +1,24 @@
+{
+  "input_study_ids_csv": "BiomeGPT_species_samples_studyIDs.csv",
+  "output_csv": "dataset_v3/meta_pretraining_phase2_gut_real_study_annotation.csv",
+  "n_phase2_samples": 13332,
+  "n_matched_real_study_id": 13326,
+  "n_missing_real_study_id": 6,
+  "n_unique_real_study_id": 80,
+  "n_batch_labels": 80,
+  "external_confidence_counts": {
+    "high": 13326,
+    "low": 6
+  },
+  "safe_counts": {
+    "False": 8581,
+    "True": 4751
+  },
+  "confounding_counts": {
+    "True": 8581,
+    "False": 4751
+  },
+  "min_batch_size": 10,
+  "n_labels_ge_min_batch_size": 80,
+  "n_samples_in_labels_ge_min_batch_size": 13326
+}
