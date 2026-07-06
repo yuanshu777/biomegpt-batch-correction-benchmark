@@ -1,88 +1,88 @@
-# 文件位置与分享包说明
+# Where To Find Everything
 
-日期：2026-07-06
+Date: 2026-07-06
 
-这个文档说明本次整理后的 BiomeGPT / scGPT / MMUPHin CRC batch-correction 相关文件放在哪里，以及 GitHub repo 和 Teams zip 包里分别包含什么。
+This document explains where the BiomeGPT / scGPT / MMUPHin CRC batch-correction materials are located, what is included in the GitHub repository, and what is included in the Teams handoff zip.
 
-## 1. 最重要的两个分享入口
+## 1. Main Sharing Locations
 
-### GitHub repo
+### GitHub Repository
 
-GitHub 地址：
+GitHub URL:
 
 ```text
 https://github.com/yuanshu777/biomegpt-batch-correction-benchmark
 ```
 
-用途：
+Purpose:
 
-- 放代码为主；
-- 方便别人在线浏览；
-- 方便后续继续开发；
-- 不放大数据、checkpoint、虚拟环境和巨型历史 zip。
+- code-first sharing;
+- easy online browsing;
+- useful for continued development;
+- excludes large datasets, checkpoints, virtual environments, cache folders, and very large historical zip files.
 
-本地对应文件夹：
+Local GitHub-ready folder:
 
 ```text
 C:\Users\Yuanshu\Documents\new_attemp_batch\share_out\github_ready_code_20260706
 ```
 
-本地 GitHub-ready 压缩包：
+Local GitHub-ready zip:
 
 ```text
 C:\Users\Yuanshu\Documents\new_attemp_batch\share_out\github_ready_code_20260706.zip
 ```
 
-当前已经推送到 GitHub 的 commit：
+Current GitHub commit after adding this guide:
 
 ```text
-7513340 Add BiomeGPT batch-correction handoff code
+c210e5c Add file location and sharing guide
 ```
 
-### Teams 分享包
+### Teams Handoff Package
 
-Teams 推荐上传这个 zip：
+Recommended zip to upload to Microsoft Teams:
 
 ```text
 C:\Users\Yuanshu\Documents\new_attemp_batch\share_out\teams_handoff_ali_lab_biogpt_scgpt_20260706.zip
 ```
 
-用途：
+Purpose:
 
-- 给 lab / professor 直接下载；
-- 包含 GitHub-ready code zip；
-- 包含当前 CRC/MMUPHin benchmark handoff zip；
-- 包含 professor-facing PDFs；
-- 包含精选旧报告和可管理大小的 legacy package；
-- 不包含 2GB/3GB 级别巨型历史 zip，也不包含 PyTorch checkpoint。
+- direct lab/professor handoff;
+- includes the GitHub-ready code zip;
+- includes the current CRC/MMUPHin benchmark handoff zip;
+- includes professor-facing PDFs;
+- includes selected older reports and manageable legacy packages;
+- excludes 2GB/3GB historical archives and PyTorch checkpoints.
 
-Teams zip 解压后的本地 staging 文件夹：
+Local staging folder for the Teams package:
 
 ```text
 C:\Users\Yuanshu\Documents\new_attemp_batch\share_out\teams_handoff_20260706
 ```
 
-## 2. GitHub repo 里面有什么
+## 2. What Is In The GitHub Repository
 
-GitHub repo 是代码导向的整理版，主要包含以下几个目录。
+The GitHub repository is a sanitized, code-focused package. It contains the current benchmark code plus selected historical code needed to understand the development path.
 
 ### `current_crc_biogpt_grl_benchmark/`
 
-这是当前最重要、最干净的项目代码。
+This is the most important current codebase.
 
-内容包括：
+It contains:
 
-- MMUPHin CRC benchmark 加载与整理；
-- BiomeGPT checkpoint / CLS extraction 相关代码；
-- GRL correction module；
-- NoMean adapter；
-- split/invariant-nuisance adapter；
-- evaluation metrics；
-- CRC389 / full551 scripts；
-- full551 benchmark reports；
-- smoke tests。
+- MMUPHin CRC benchmark loading and setup;
+- BiomeGPT checkpoint loading and CLS extraction code;
+- GRL correction modules;
+- NoMean adapter code;
+- split / invariant-nuisance adapter code;
+- evaluation metrics;
+- CRC389 and full551 scripts;
+- full551 benchmark reports;
+- smoke tests.
 
-主要子目录：
+Important subfolders:
 
 ```text
 current_crc_biogpt_grl_benchmark/src
@@ -93,7 +93,7 @@ current_crc_biogpt_grl_benchmark/configs
 current_crc_biogpt_grl_benchmark/data_manifest
 ```
 
-最值得先看的报告：
+Recommended reports to read first:
 
 ```text
 current_crc_biogpt_grl_benchmark/reports/full551_benchmark_reproduction_summary.md
@@ -105,57 +105,57 @@ current_crc_biogpt_grl_benchmark/reports/crc389_overlap_audit_vs_full551.md
 
 ### `scgpt_local_changes/`
 
-这是本地 scGPT 相关改动，不是完整复制上游 scGPT。
+This contains local scGPT-related modifications and minimal pipeline work. It is not a full copy of upstream scGPT.
 
-原始上游 repo 是：
+The upstream scGPT repository was:
 
 ```text
 https://github.com/bowang-lab/scGPT.git
 ```
 
-这里主要放：
+This folder includes:
 
-- 本地 patch：`scgpt_local_changes.patch`
-- 修改过的 tracked 文件副本；
-- minimal atlas pipeline；
-- smoke example；
-- cleaned Colab notebook。
+- `scgpt_local_changes.patch`;
+- copies of locally modified tracked files;
+- a minimal atlas pipeline;
+- a smoke example;
+- a cleaned Colab notebook.
 
-这个目录用于说明我们如何借鉴 scGPT 的思路，但不要把它当成完整 scGPT package。
+This folder is included to document how scGPT ideas were used as a conceptual reference.
 
 ### `desktop_biogpt_selected/`
 
-这是从旧的 Desktop Ali lab BiomeGPT 工作区挑出来的轻量文件。
+This contains selected lightweight files from the older Desktop Ali lab BiomeGPT workspace.
 
-包含：
+It includes:
 
-- BiomeGPT full pipeline notebook；
-- taxonomy BiomeGPT workflow notebook；
-- BiomeGPT reproducibility training script；
-- taxonomy pipeline script；
-- professor smoke outputs；
-- batch annotation phase2 summaries。
+- BiomeGPT full pipeline notebook;
+- taxonomy BiomeGPT workflow notebook;
+- BiomeGPT reproducibility training script;
+- taxonomy pipeline script;
+- professor smoke outputs;
+- batch annotation phase 2 summaries.
 
-这个目录说明早期 BiomeGPT 训练/复现 scaffold 是怎么做的。
+This folder documents earlier BiomeGPT training and reproducibility scaffolds.
 
 ### `legacy_biogpt_batch_work/`
 
-这是更早的 BiomeGPT batch-correction / batch-aware modeling 工作。
+This contains earlier BiomeGPT batch-correction / batch-aware modeling work.
 
-包含：
+It includes:
 
-- batch adversarial correction；
-- centroid distillation；
-- batch-conditioned decoder；
-- batch-token pretraining；
-- real-study embedding correction；
-- legacy reports。
+- batch adversarial correction;
+- centroid distillation;
+- batch-conditioned decoder;
+- batch-token pretraining;
+- real-study embedding correction;
+- legacy reports.
 
-注意：这个目录是历史参考，不是当前 canonical MMUPHin CRC benchmark。
+This is historical reference material. It should not be treated as the current canonical MMUPHin CRC benchmark.
 
 ### `top_level_crc_scripts/`
 
-这里放从当前 workspace 顶层整理出来的 R/Python 脚本，例如：
+This contains R/Python scripts copied from the current workspace root, including:
 
 ```text
 prepare_crc_controlled_benchmark.R
@@ -166,57 +166,61 @@ mmuphin_crc_scouting.R
 crc_overlap_check.py
 ```
 
-这些脚本和当前 CRC/MMUPHin benchmark 的数据准备与评估有关。
+These scripts are related to MMUPHin CRC dataset preparation, overlap checking, and controlled evaluation.
 
-## 3. Teams zip 里面有什么
+## 3. What Is In The Teams Zip
 
-Teams zip 是更完整的交接包，不只是代码。
-
-路径：
+Teams zip path:
 
 ```text
 C:\Users\Yuanshu\Documents\new_attemp_batch\share_out\teams_handoff_ali_lab_biogpt_scgpt_20260706.zip
 ```
 
-里面主要包括：
+The Teams zip is a broader handoff package. It contains more than code.
 
 ### `github_ready_code_20260706.zip`
 
-这是 GitHub 代码包的压缩版。
+This is the compressed version of the GitHub-ready code package.
 
-如果别人不想从 GitHub clone，也可以直接解压这个 zip 看代码。
+If someone does not want to clone GitHub, they can unzip this file and inspect the code locally.
 
 ### `lab_handoff_biogpt_batch_correction_20260706.zip`
 
-这是当前 CRC/MMUPHin/BiomeGPT benchmark 的完整 handoff 包。
+This is the current CRC/MMUPHin/BiomeGPT benchmark handoff package.
 
-内容比 GitHub repo 更偏结果交接，包括：
+It includes:
 
-- current CRC/MMUPHin benchmark package；
-- reports；
-- figures；
-- output summaries；
-- current handoff README。
+- the current CRC/MMUPHin benchmark package;
+- reports;
+- figures;
+- output summaries;
+- the current handoff README.
 
 ### `LAB_HANDOFF_README_20260706.md`
 
-这是最详细的技术交接 README。
+This is the detailed technical handoff README.
 
-它说明：
+It explains:
 
-- project goal；
-- current reliable conclusion；
-- main reports；
-- canonical benchmark metrics；
-- BiomeGPT CLS results；
-- what not to overclaim；
-- next scientific direction。
+- project goal;
+- current reliable conclusions;
+- main reports;
+- canonical benchmark metrics;
+- BiomeGPT CLS results;
+- what not to overclaim;
+- recommended next scientific direction.
+
+### `WHERE_TO_FIND_FILES_20260706.md`
+
+This document.
+
+It is included so that people can quickly understand what is in GitHub, what is in the Teams zip, and what was intentionally excluded.
 
 ### `selected_reports/current_crc_mmuphin/`
 
-当前 MMUPHin CRC / full551 相关 professor-facing report。
+Current MMUPHin CRC / full551 professor-facing reports.
 
-主要包括：
+Main files:
 
 ```text
 crc_batch_correction_progress_report.pdf
@@ -228,7 +232,7 @@ full551_old_grl_pca.png
 full551_residual_grl_pca.png
 ```
 
-其中最推荐直接发给 professor 看的 PDF 是：
+The most useful professor-facing PDF is:
 
 ```text
 crc_batch_correction_progress_report.pdf
@@ -236,15 +240,13 @@ crc_batch_correction_progress_report.pdf
 
 ### `selected_reports/desktop_legacy_reports/`
 
-这里放旧阶段的 professor-facing PDFs 和 summary CSV/MD。
+Selected older professor-facing PDFs and summary CSV/MD files.
 
-这些文件用于说明之前一步步做过的 batch-effect / BiomeGPT / scGPT-style exploration。
-
-注意：这些是历史探索材料，不是当前最可靠的 final benchmark。
+These are useful for reconstructing the project history, but they are not the current most reliable benchmark.
 
 ### `optional_legacy_zips/`
 
-这里放几个大小可管理的历史包，例如：
+Selected manageable historical zip packages, such as:
 
 ```text
 biomegpt_reusable_20260521_batch_correction.zip
@@ -253,11 +255,11 @@ professor_batch_effect_final_package.zip
 biomegpt_vscode_ssh_package_20260520_124147.zip
 ```
 
-这些包是可选参考，不是必须先看的文件。
+These are optional references and do not need to be read first.
 
 ### `project_context/`
 
-这里放旧工作区的 context / project map：
+Small context files from the older working folders:
 
 ```text
 ALI_LAB_PROJECT_MAP.md
@@ -266,33 +268,33 @@ shared_memory/scgpt_biogpt_bridge.md
 shared_memory/paths.json
 ```
 
-用于解释旧的 `scgpt` 和 `biogpt` 文件夹之间的关系。
+These explain how the older `scgpt` and `biogpt` folders related to each other.
 
-## 4. 没有放进去的东西
+## 4. What Was Intentionally Excluded
 
-以下内容没有放进 GitHub，也没有放进 Teams 主包：
+The following were intentionally excluded from GitHub and from the main Teams handoff package:
 
-- PyTorch checkpoints；
-- raw data 大文件；
-- 2GB/3GB 历史 zip；
-- local virtual environments；
-- `.git` 文件夹；
-- `.codex` / `.agents`；
-- `tmp`；
-- Python cache；
-- LaTeX 中间文件；
-- rendered PDF page images。
+- PyTorch checkpoints;
+- raw data folders;
+- 2GB/3GB historical zip archives;
+- local virtual environments;
+- `.git` folders;
+- `.codex` / `.agents`;
+- `tmp`;
+- Python cache folders;
+- LaTeX intermediate files;
+- rendered PDF page images.
 
-主要没放的 checkpoint：
+Checkpoint files not included:
 
 ```text
 C:\Users\Yuanshu\Documents\new_attemp_batch\taxonomy_checkpoint_stage1 (1).pt
 C:\Users\Yuanshu\Documents\new_attemp_batch\taxonomy_checkpoint_stage2 (1).pt
 ```
 
-如果别人需要重新抽 BiomeGPT CLS，需要单独分享这两个 checkpoint。
+If someone needs to rerun BiomeGPT CLS extraction, these checkpoints should be shared separately.
 
-主要没放的超大历史 zip：
+Large historical zip files not included:
 
 ```text
 C:\Users\Yuanshu\Desktop\Ali lab\biomegpt_full_work_20260521_batch_correction.zip
@@ -300,30 +302,30 @@ C:\Users\Yuanshu\Desktop\Ali lab\outputs_phase2_start_scgpt_style_batch_aware (2
 C:\Users\Yuanshu\Desktop\Ali lab\outputs_phase2_start_scgpt_style_batch_aware.zip
 ```
 
-这些文件太大，不适合 GitHub，也不适合普通 Teams handoff。
+These are too large for GitHub and not appropriate for a normal Teams handoff.
 
-## 5. 当前项目结论应该怎么说
+## 5. Safe Scientific Summary
 
-安全说法：
+Safe summary:
 
 > We organized a controlled MMUPHin CRC benchmark and a BiomeGPT/scGPT-style batch-correction prototype. The current reliable finding is that BiomeGPT CLS embeddings contain measurable study/cohort signal, and simple post-hoc GRL can reduce study classifier predictability but does not reliably remove global study-associated variance. The stronger future direction is batch-aware BiomeGPT adapter/LoRA post-training with invariant/nuisance splitting, study-conditioned reconstruction, conditional CORAL/MMD, and strict LOSO/cross-fitted evaluation.
 
-不要说：
+Do not claim:
 
-- 当前 GRL 已经全面打败 MMUPHin；
-- old cw0.1 是 clean biological improvement；
-- CRC389 是 canonical benchmark；
-- 当前 CLS correction 已经是最终 foundation-model-level batch correction。
+- that the current GRL method definitively beats MMUPHin;
+- that old cw0.1 is a clean biological improvement;
+- that CRC389 is the canonical benchmark;
+- that current CLS correction is already a final foundation-model-level batch correction method.
 
-## 6. 如果之后继续更新 GitHub
+## 6. Updating GitHub Later
 
-本地 GitHub repo 位置：
+Local GitHub repo:
 
 ```text
 C:\Users\Yuanshu\Documents\new_attemp_batch\share_out\github_ready_code_20260706
 ```
 
-常用命令：
+Useful commands:
 
 ```powershell
 cd "C:\Users\Yuanshu\Documents\new_attemp_batch\share_out\github_ready_code_20260706"
@@ -333,27 +335,27 @@ git commit -m "Update handoff documentation"
 git push
 ```
 
-远程 GitHub：
+Remote GitHub repository:
 
 ```text
 https://github.com/yuanshu777/biomegpt-batch-correction-benchmark
 ```
 
-## 7. 最推荐给别人看的顺序
+## 7. Recommended Reading Order
 
-如果对方只有 10 分钟：
+If someone has only 10 minutes:
 
-1. GitHub repo README；
-2. `LAB_HANDOFF_README_20260706.md`；
-3. `crc_batch_correction_progress_report.pdf`；
-4. `full551_benchmark_reproduction_summary.md`；
-5. `mmuphin_guided_residual_grl_full551_summary.md`。
+1. GitHub repo README;
+2. `LAB_HANDOFF_README_20260706.md`;
+3. `crc_batch_correction_progress_report.pdf`;
+4. `full551_benchmark_reproduction_summary.md`;
+5. `mmuphin_guided_residual_grl_full551_summary.md`.
 
-如果对方要接着开发：
+If someone wants to continue development:
 
-1. clone GitHub repo；
-2. 看 `current_crc_biogpt_grl_benchmark/src`；
-3. 看 `current_crc_biogpt_grl_benchmark/scripts`；
-4. 如果要重新抽 CLS，单独拿 checkpoint；
-5. 不要从 old legacy outputs 开始。
+1. clone the GitHub repo;
+2. inspect `current_crc_biogpt_grl_benchmark/src`;
+3. inspect `current_crc_biogpt_grl_benchmark/scripts`;
+4. request the checkpoint files separately if CLS extraction needs to be rerun;
+5. avoid starting from old legacy outputs.
 
